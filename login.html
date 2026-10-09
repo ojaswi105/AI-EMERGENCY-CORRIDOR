@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Emergency Corridor - Command Gateway</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚨</text></svg>">
+<style>
+  :root {
+    --primary: #0284c7;
+    --primary-hover: #0369a1;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --card-bg: rgba(15, 23, 42, 0.92);
+    --input-bg: rgba(30, 41, 59, 0.9);
+    --border: rgba(56, 189, 248, 0.35);
+    --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, sans-serif; }
+
+  /* SPLASH SCREEN */
+  #splashScreen {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 99999; transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  .splash-logo-container { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 20px; }
+  .splash-icon { font-size: 54px; padding: 18px; background: #f1f5f9; border-radius: 22px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); }
+  .splash-title { font-size: 26px; font-weight: 900; color: #0f172a; margin-bottom: 6px; text-align: center; }
+  .splash-subtitle { font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 30px; text-align: center; }
+  .splash-loader { width: 200px; height: 5px; background: #e2e8f0; border-radius: 10px; overflow: hidden; }
+  .splash-progress { width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #10b981); border-radius: 10px; animation: loadBar 2.3s ease-in-out forwards; }
+
+  @keyframes loadBar { 0% { width: 0%; } 40% { width: 65%; } 100% { width: 100%; } }
+
+  body { min-height: 100vh; background: #070d19; color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  
+  .portal-wrapper {
+    display: flex; width: 100%; max-width: 1080px; min-height: 640px;
+    background: rgba(13, 22, 41, 0.95); border: 1.5px solid var(--border); border-radius: 24px;
+    overflow: hidden; box-shadow: 0 25px 70px -10px rgba(0, 0, 0, 0.9), 0 0 40px rgba(2, 132, 199, 0.2);
+  }
+
+  /* LEFT HERO PANEL WITH PREVIOUS SVG ROAD WATERMARK GRAPHICS */
+  .hero-panel {
+    flex: 1.1;
+    position: relative;
+    background-color: #0b1528;
+    background-image: 
+      radial-gradient(at 10% 20%, rgba(2, 132, 199, 0.35) 0px, transparent 50%),
+      radial-gradient(at 90% 80%, rgba(239, 68, 68, 0.25) 0px, transparent 50%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230284c7' stop-opacity='0.15'/%3E%3Cstop offset='100%25' stop-color='%230f172a' stop-opacity='0.8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='800' height='600' fill='url(%23g1)'/%3E%3Cg opacity='0.25'%3E%3Cpath d='M-50 450 L350 200 L850 500' fill='none' stroke='%2338bdf8' stroke-width='32' stroke-linecap='round'/%3E%3Cpath d='M-50 450 L350 200 L850 500' fill='none' stroke='%23ffffff' stroke-width='6' stroke-dasharray='15,20'/%3E%3Ccircle cx='350' cy='200' r='18' fill='%23ef4444'/%3E%3Ccircle cx='550' cy='320' r='14' fill='%2310b981'/%3E%3C/g%3E%3Ctext x='48%25' y='46%25' font-size='130' opacity='0.35' text-anchor='middle' dominant-baseline='central'%3E🚑%3C/text%3E%3C/svg%3E");
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid var(--border);
+  }
+
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 8px; background: rgba(2, 132, 199, 0.3);
+    border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; width: fit-content;
+  }
+  .hero-content h2 { font-size: 28px; font-weight: 900; line-height: 1.25; color: #ffffff; margin-bottom: 10px; text-shadow: 0 4px 15px rgba(0,0,0,0.8); }
+  .hero-content p { font-size: 13px; color: #cbd5e1; line-height: 1.5; }
+
+  .live-badge-box {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .stat-card {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 14px;
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
+  }
+  .stat-card .val { font-size: 15px; font-weight: 800; color: #38bdf8; }
+  .stat-card .lbl { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+
+  .form-panel { flex: 1.15; padding: 32px 30px; display: flex; flex-direction: column; justify-content: center; background: #0c1424; position: relative; }
+  .form-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .form-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+
+  .step-tracker { display: flex; gap: 8px; margin-bottom: 18px; }
+  .step-dot { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); }
+  .step-dot.active { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+
+  .field-group { margin-bottom: 12px; }
+  .field-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #cbd5e1; margin-bottom: 5px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .input-control {
+    width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1.5px solid #283a57;
+    border-radius: 8px; color: #fff; font-size: 12.5px; font-weight: 600; outline: none;
+  }
+  .input-control:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25); }
+
+  .btn-submit {
+    width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 12.5px; font-weight: 800;
+    cursor: pointer; color: #fff; margin-top: 10px; background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 4px 18px rgba(2, 132, 199, 0.4);
+  }
+  .role-tile {
+    padding: 14px; background: rgba(30, 41, 59, 0.5); border: 1.5px solid #283a57; border-radius: 10px;
+    cursor: pointer; margin-bottom: 10px; display: flex; align-items: center; gap: 14px;
+  }
+  .role-tile:hover { border-color: #38bdf8; background: rgba(40, 58, 87, 0.6); }
+
+  .otp-modal-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 11, 23, 0.96);
+    backdrop-filter: blur(14px); display: none; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; z-index: 50; border-radius: 0 24px 24px 0;
+  }
+  .otp-inputs { display: flex; gap: 10px; margin: 16px 0; }
+  .otp-digit { width: 48px; height: 52px; background: #1e293b; border: 2px solid #334155; border-radius: 10px; text-align: center; font-size: 20px; font-weight: 900; color: #38bdf8; outline: none; }
+</style>
+</head>
+<body>
+
+<div id="splashScreen">
+  <div class="splash-logo-container">
+    <div class="splash-icon">🚑</div>
+    <div class="splash-icon" style="font-size: 48px;">💳</div>
+    <div class="splash-icon">🏥</div>
+  </div>
+  <div class="splash-title">AI EMERGENCY CORRIDOR</div>
+  <div class="splash-subtitle">Smart Traffic Pre-Emption & Cashless TPA Gateway</div>
+  <div class="splash-loader"><div class="splash-progress"></div></div>
+</div>
+
+<div class="portal-wrapper">
+  <!-- LEFT HERO PANEL -->
+  <div class="hero-panel">
+    <div class="hero-tag">💳 ABHA & CASHLESS PRE-AUTH READY</div>
+    
+    <div class="hero-content">
+      <h2>Instant Admission & Green Wave Clearance</h2>
+      <p>Automated telemetry synchronizes Ayushman Bharat (ABHA) IDs & TPA Health Insurance directly with Receiving Trauma Bay, eliminating admission desk delays.</p>
+
+      <div class="live-badge-box">
+        <div class="stat-card">
+          <div class="val">5 JUNCTIONS</div>
+          <div class="lbl">Green Wave Signals</div>
+        </div>
+        <div class="stat-card">
+          <div class="val">ZERO PAPERWORK</div>
+          <div class="lbl">Cashless ER Pre-Auth</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="font-size:11px; color:#64748b;">NHA ABHA Sandbox Gateway API v3.2 Active</div>
+  </div>
+
+  <!-- RIGHT FORM PANEL -->
+  <div class="form-panel">
+    <!-- OTP MODAL OVERLAY -->
+    <div class="otp-modal-overlay" id="otpModal">
+      <div style="background:rgba(16, 185, 129, 0.2); border:1px solid #10b981; color:#10b981; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:800;">🔒 2-FACTOR OTP</div>
+      <h3 style="font-size:18px; color:#fff; margin-top:8px;">Enter 4-Digit Code</h3>
+      <div style="margin-top:10px; font-size:11px; color:#94a3b8;">
+        Demo Code: <b id="generatedOtpDisplay" style="color:#38bdf8; font-size:13px;">--</b>
+        <button type="button" onclick="autoFillOtp()" style="background:#0284c7; color:#fff; border:none; padding:2px 8px; border-radius:4px; margin-left:6px; cursor:pointer;">⚡ Auto-Fill</button>
+      </div>
+
+      <div class="otp-inputs">
+        <input type="text" maxlength="1" class="otp-digit" id="otp1" oninput="moveOtpFocus(this, 'otp2')" />
+        <input type="text" maxlength="1" class="otp-digit" id="otp2" oninput="moveOtpFocus(this, 'otp3')" />
+        <input type="text" maxlength="1" class="otp-digit" id="otp3" oninput="moveOtpFocus(this, 'otp4')" />
+        <input type="text" maxlength="1" class="otp-digit" id="otp4" oninput="moveOtpFocus(this, null)" />
+      </div>
+
+      <button type="button" class="btn-submit" onclick="verifyOtpCode()" style="background: linear-gradient(135deg, #10b981, #059669);">
+        VERIFY OTP & PROCEED ➔
+      </button>
+    </div>
+
+    <h1 class="form-title" id="cardHeaderTitle">Create Secure Account</h1>
+    <p class="form-subtitle" id="cardHeaderSub">Step 1: Enter email and setup credentials</p>
+
+    <div class="step-tracker">
+      <div class="step-dot active" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+      <div class="step-dot" id="dot3"></div>
+    </div>
+
+    <!-- STEP 1A: REGISTER -->
+    <div id="registerStep">
+      <div class="field-group">
+        <label class="field-label">Email Address</label>
+        <input type="email" id="regEmail" class="input-control" value="emergency.nagpur@control.in" required />
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Password</label>
+          <input type="password" id="regPassword" class="input-control" value="Nagpur@2026" required />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Confirm</label>
+          <input type="password" id="regConfirmPassword" class="input-control" value="Nagpur@2026" required />
+        </div>
+      </div>
+      <button type="button" class="btn-submit" onclick="proceedRegister()">REQUEST OTP & CONTINUE ➔</button>
+      <div style="text-align:center; font-size:11.5px; color:#94a3b8; margin-top:10px;">
+        Already have credentials? <a onclick="toggleAuthMode('signin')" style="color:#38bdf8; cursor:pointer; font-weight:700;">Sign in here</a>
+      </div>
+    </div>
+
+    <!-- STEP 1B: SIGN IN -->
+    <div id="signinStep" style="display:none;">
+      <div class="field-group">
+        <label class="field-label">Email or Username</label>
+        <input type="text" id="loginUser" class="input-control" value="emergency.nagpur@control.in" required />
+      </div>
+      <div class="field-group">
+        <label class="field-label">Password</label>
+        <input type="password" id="loginPass" class="input-control" value="Nagpur@2026" required />
+      </div>
+      <button type="button" class="btn-submit" onclick="proceedLogin()">REQUEST OTP & SIGN IN ➔</button>
+      <div style="text-align:center; font-size:11.5px; color:#94a3b8; margin-top:10px;">
+        Need an account? <a onclick="toggleAuthMode('register')" style="color:#38bdf8; cursor:pointer; font-weight:700;">Create Account</a>
+      </div>
+    </div>
+
+    <!-- STEP 2: ROLE SELECTION -->
+    <div id="step2" style="display:none;">
+      <button type="button" onclick="goToStep(1)" style="background:transparent; border:none; color:#94a3b8; font-size:11px; cursor:pointer; margin-bottom:12px;">← Back to Credentials</button>
+      <div class="role-tile" onclick="selectRole('driver')">
+        <div style="font-size:26px;">🚑</div>
+        <div>
+          <div style="font-size:13px; font-weight:800; color:#fff;">REGISTER AS PILOT / DRIVER</div>
+          <div style="font-size:10.5px; color:var(--text-muted);">Ambulance EMS / Fire Tender Pilot</div>
+        </div>
+      </div>
+      <div class="role-tile" onclick="selectRole('patient')">
+        <div style="font-size:26px;">👤</div>
+        <div>
+          <div style="font-size:13px; font-weight:800; color:#fff;">REGISTER AS PATIENT / CALLER</div>
+          <div style="font-size:10.5px; color:var(--text-muted);">Home pickup + ABHA Cashless Health ID Link</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3A: DRIVER FORM -->
+    <form id="driverForm" action="/dashboard" method="GET" style="display:none;">
+      <input type="hidden" name="role" value="driver" />
+      <button type="button" onclick="goToStep(2)" style="background:transparent; border:none; color:#94a3b8; font-size:11px; cursor:pointer; margin-bottom:10px;">← Change Role</button>
+      <div class="field-group">
+        <label class="field-label">Pilot Name</label>
+        <input type="text" name="name" class="input-control" value="Rajesh Kumar Verma" required />
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Contact</label>
+          <input type="tel" name="phone" class="input-control" value="+91 98231 44550" required />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Vehicle Reg. No.</label>
+          <input type="text" name="vehicle" class="input-control" value="MH 31 EQ 4002" required />
+        </div>
+      </div>
+      <button type="submit" class="btn-submit">LAUNCH DISPATCH CONSOLE 🚀</button>
+    </form>
+
+    <!-- STEP 3B: PATIENT FORM WITH CLEAN ABHA & CASHLESS TPA GATE -->
+    <form id="patientForm" action="/dashboard" method="GET" style="display:none;">
+      <input type="hidden" name="role" value="patient" />
+      <button type="button" onclick="goToStep(2)" style="background:transparent; border:none; color:#94a3b8; font-size:11px; cursor:pointer; margin-bottom:10px;">← Change Role</button>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Patient Name</label>
+          <input type="text" name="name" class="input-control" value="Amit S. Sharma" required />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Phone</label>
+          <input type="tel" name="phone" class="input-control" value="+91 94220 11223" required />
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Home Pickup Address</label>
+        <input type="text" name="address" class="input-control" value="Plot 24, Near Garden, Trimurti Nagar" required />
+      </div>
+
+      <!-- AUTOMATED INSURANCE & ABHA CASHLESS SECTION -->
+      <div style="background: rgba(2, 132, 199, 0.12); border: 1.5px solid #0284c7; border-radius: 8px; padding: 10px; margin-bottom: 12px;">
+        <label class="field-label" style="color: #38bdf8; display:flex; justify-content:space-between;">
+          <span>💳 ABHA ID / CASHLESS INSURANCE LINK</span>
+          <span style="font-size:9.5px; color:#10b981;">NHA SANDBOX ACTIVE</span>
+        </label>
+        <div class="field-row" style="margin-top:6px;">
+          <div>
+            <input type="text" name="abha_id" class="input-control" placeholder="ABHA ID: 91-4402-9912-3301" value="91-4402-9912-3301" style="border-color:#0284c7; font-size:11.5px;" />
+          </div>
+          <div>
+            <select name="insurance_provider" class="input-control" style="border-color:#0284c7; font-size:11.5px;">
+              <option value="Star Health">Star Health (Cashless Pre-Auth)</option>
+              <option value="HDFC ERGO">HDFC ERGO Health</option>
+              <option value="PMJAY Ayushman">PMJAY Ayushman Bharat Golden Card</option>
+              <option value="ICICI Lombard">ICICI Lombard Complete Health</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:10px; color:#cbd5e1; margin-top:5px;">
+          ⚡ <i>Transit ke waqt hi Pre-Auth Trigger hoga — ER arrival par zero admission billing delay!</i>
+        </div>
+      </div>
+
+      <!-- ALS CRITICAL TOGGLE SECTION -->
+      <div class="field-group" style="background: rgba(239, 68, 68, 0.15); border: 1.5px solid #ef4444; padding: 10px; border-radius: 8px;">
+        <label class="field-label" style="color: #fca5a5;">⚠️ EMERGENCY SEVERITY LEVEL</label>
+        <select name="severity" class="input-control" style="border-color: #ef4444; font-weight:700; color:#fff; background:#1e1b4b;">
+          <option value="critical" selected>🚨 CRITICAL: Cardiac Event / Unconscious (ALS Mobile ICU)</option>
+          <option value="normal">Standard BLS Ambulance (Stable Patient)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn-submit" style="background:linear-gradient(135deg, #10b981, #059669); border-color:#34d399;">
+        DISPATCH AMBULANCE & TRIGGER PRE-AUTH ➔
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  let activeGeneratedOtp = "7492";
+
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      const splash = document.getElementById('splashScreen');
+      if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.style.display = 'none', 600);
+      }
+    }, 2200);
+  });
+
+  function updateDots(stepNum) {
+    document.getElementById('dot1').className = stepNum >= 1 ? 'step-dot active' : 'step-dot';
+    document.getElementById('dot2').className = stepNum >= 2 ? 'step-dot active' : 'step-dot';
+    document.getElementById('dot3').className = stepNum >= 3 ? 'step-dot active' : 'step-dot';
+  }
+
+  function toggleAuthMode(m) {
+    if (m === 'signin') {
+      document.getElementById('registerStep').style.display = 'none';
+      document.getElementById('signinStep').style.display = 'block';
+      document.getElementById('cardHeaderTitle').innerText = "Portal Sign In";
+      document.getElementById('cardHeaderSub').innerText = "Step 1: Sign in with registered credentials";
+    } else {
+      document.getElementById('signinStep').style.display = 'none';
+      document.getElementById('registerStep').style.display = 'block';
+      document.getElementById('cardHeaderTitle').innerText = "Create Secure Account";
+      document.getElementById('cardHeaderSub').innerText = "Step 1: Enter email and setup credentials";
+    }
+  }
+
+  function proceedRegister() { triggerOtpModal(document.getElementById('regEmail').value.trim()); }
+  function proceedLogin() { triggerOtpModal(document.getElementById('loginUser').value.trim()); }
+
+  function triggerOtpModal(identifier) {
+    activeGeneratedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    document.getElementById('generatedOtpDisplay').innerText = activeGeneratedOtp;
+    ['otp1', 'otp2', 'otp3', 'otp4'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('otpModal').style.display = 'flex';
+    document.getElementById('otp1').focus();
+  }
+
+  function moveOtpFocus(curr, nextId) {
+    if (curr.value.length >= 1 && nextId) document.getElementById(nextId).focus();
+  }
+
+  function autoFillOtp() {
+    const digits = activeGeneratedOtp.split('');
+    document.getElementById('otp1').value = digits[0];
+    document.getElementById('otp2').value = digits[1];
+    document.getElementById('otp3').value = digits[2];
+    document.getElementById('otp4').value = digits[3];
+  }
+
+  function verifyOtpCode() {
+    const entered = document.getElementById('otp1').value + document.getElementById('otp2').value + document.getElementById('otp3').value + document.getElementById('otp4').value;
+    if (entered === activeGeneratedOtp) {
+      document.getElementById('otpModal').style.display = 'none';
+      goToStep(2);
+    } else {
+      alert("Invalid OTP code. Click Auto-Fill.");
+    }
+  }
+
+  function selectRole(r) {
+    document.getElementById('step2').style.display = 'none';
+    if (r === 'driver') {
+      document.getElementById('driverForm').style.display = 'block';
+      document.getElementById('cardHeaderTitle').innerText = "Driver Registration";
+      document.getElementById('cardHeaderSub').innerText = "Step 3: Register pilot and vehicle units";
+    } else {
+      document.getElementById('patientForm').style.display = 'block';
+      document.getElementById('cardHeaderTitle').innerText = "Patient Registration";
+      document.getElementById('cardHeaderSub').innerText = "Step 3: Register home address & ABHA Insurance Gate";
+    }
+    updateDots(3);
+  }
+
+  function goToStep(num) {
+    ['registerStep', 'signinStep', 'step2', 'driverForm', 'patientForm'].forEach(id => document.getElementById(id).style.display = 'none');
+    if (num === 1) {
+      document.getElementById('registerStep').style.display = 'block';
+      document.getElementById('cardHeaderTitle').innerText = "Create Secure Account";
+      document.getElementById('cardHeaderSub').innerText = "Step 1: Enter email and setup credentials";
+      updateDots(1);
+    } else if (num === 2) {
+      document.getElementById('step2').style.display = 'block';
+      document.getElementById('cardHeaderTitle').innerText = "Select Identity Role";
+      document.getElementById('cardHeaderSub').innerText = "Step 2: Choose your emergency session role";
+      updateDots(2);
+    }
+  }
+</script>
+</body>
+</html>

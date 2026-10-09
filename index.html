@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Emergency Corridor System</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚨</text></svg>">
+<style>
+  :root {
+    --bg-base: #0a101d;
+    --card-bg: rgba(17, 24, 39, 0.85);
+    --border: rgba(255, 255, 255, 0.1);
+    --accent-blue: #38bdf8;
+    --accent-orange: #ea580c;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --text-light: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-base);
+    color: var(--text-light);
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  #header {
+    height: 52px;
+    background: rgba(15, 23, 42, 0.95);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(12px);
+    z-index: 20;
+  }
+  .brand { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  
+  .network-status-badge {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid #10b981;
+    color: var(--accent-green);
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .network-status-badge.offline {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fde68a;
+  }
+
+  /* PROFILE BADGE */
+  .profile-badge-btn {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .profile-badge-btn:hover { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.15); }
+  .avatar-icon { font-size: 16px; background: rgba(2, 132, 199, 0.3); border-radius: 50%; padding: 2px 4px; }
+  
+  .badge-role-tag {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .tag-driver { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+  .tag-patient { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.4); }
+
+  /* OVERLAYS */
+  #accountDrawerOverlay, #patientFormOverlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(5px);
+    z-index: 99999;
+  }
+  #accountDrawer {
+    position: fixed;
+    top: 0; right: -440px;
+    width: 390px; height: 100vh;
+    background: #0f172a;
+    border-left: 1.5px solid var(--border);
+    box-shadow: -15px 0 50px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    z-index: 100000;
+    transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
+  }
+  #accountDrawer.open { right: 0; }
+
+  .account-hero {
+    background: linear-gradient(180deg, #1e293b, #0f172a);
+    padding: 24px 20px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .close-drawer-btn {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,255,255,0.1); border: none; color: #fff;
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  .drawer-avatar {
+    width: 62px; height: 62px; border-radius: 50%;
+    background: #0284c7; border: 2.5px solid #38bdf8;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+  }
+  .account-title { font-size: 18px; font-weight: 800; color: #fff; margin-top: 10px; }
+  .account-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .drawer-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .action-tiles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .app-tile {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .app-tile:hover { background: rgba(56, 189, 248, 0.12); border-color: var(--accent-blue); transform: translateY(-2px); }
+  .app-tile .icon { font-size: 20px; margin-bottom: 4px; }
+  .app-tile .title { font-size: 10.5px; font-weight: 700; color: #f1f5f9; }
+
+  .section-group {
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 800; color: #94a3b8;
+    text-transform: uppercase; padding: 10px 14px 4px 14px;
+  }
+  .app-row-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 12px;
+    color: #e2e8f0;
+  }
+  .app-row-item:last-child { border-bottom: none; }
+  .app-row-item:hover { background: rgba(255, 255, 255, 0.04); }
+  .row-left { display: flex; align-items: center; gap: 10px; }
+  .row-left span.icon { font-size: 16px; }
+  .chevron { color: #64748b; font-size: 14px; font-weight: 800; }
+
+  /* SWITCH */
+  .switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #334155; transition: .3s; border-radius: 20px;
+  }
+  .slider:before {
+    position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
+    background-color: white; transition: .3s; border-radius: 50%;
+  }
+  input:checked + .slider { background-color: var(--accent-green); }
+  input:checked + .slider:before { transform: translateX(18px); }
+
+  /* POLICE HUD */
+  #policeAlertBar {
+    background: linear-gradient(90deg, #1e1b4b, #0f172a, #31101e);
+    border-bottom: 2px solid #3b82f6;
+    padding: 6px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 9;
+  }
+  .police-left { display: flex; align-items: center; gap: 10px; }
+  .police-live-dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
+
+  .police-action-btn {
+    background: #0284c7; color: #fff; border: 1px solid #38bdf8; padding: 5px 14px;
+    border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer;
+  }
+
+  /* WORKSPACE */
+  #workspace { display: flex; height: calc(100vh - 88px); }
+  .panel {
+    width: 340px; background: rgba(15, 23, 42, 0.85); padding: 12px;
+    display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+    border-right: 1px solid var(--border);
+  }
+  .panel-right { width: 340px; border-right: none; border-left: 1px solid var(--border); }
+  .label-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+  select, input {
+    width: 100%; padding: 8px; background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border);
+    border-radius: 6px; color: #fff; font-size: 12px; outline: none; margin-top: 2px;
+  }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .btn {
+    padding: 8px 10px; border: none; border-radius: 6px; font-weight: 700; font-size: 11px;
+    cursor: pointer; transition: 0.2s;
+  }
+  .btn-amb { background: #2563eb; color: #fff; }
+  .btn-jam { background: #dc2626; color: #fff; }
+  .btn-auto { background: #059669; color: #fff; grid-column: span 2; }
+  .btn-reset { background: #334155; color: #cbd5e1; grid-column: span 2; }
+  .btn-form-trigger {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    color: #fff; border: 1px solid #38bdf8;
+    grid-column: span 2; font-weight: 800;
+  }
+
+  .accordion-btn {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border);
+    color: var(--accent-blue);
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .accordion-content {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(11, 17, 32, 0.6);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 4px;
+  }
+  .btn-medical-halt {
+    background: linear-gradient(135deg, #10b981, #047857);
+    color: #fff;
+    border: 1.5px solid #34d399;
+  }
+  .btn-medical-halt.halt-active {
+    background: linear-gradient(135deg, #e11d48, #be123c);
+    border-color: #fda4af;
+  }
+
+  #center-display { flex: 1; display: flex; flex-direction: column; background: #111a2e; position: relative; }
+  #mapSvg { width: 100%; flex: 1; min-height: 480px; }
+  .console {
+    height: 100px; background: #080d1a; border-top: 1px solid var(--border);
+    padding: 8px 12px; font-family: monospace; font-size: 11px; overflow-y: auto;
+  }
+  .log-line { line-height: 1.4; color: var(--accent-green); }
+  .log-alert { color: #f59e0b; }
+  .tile { background: rgba(30, 41, 59, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+  .metric { font-size: 20px; font-weight: 800; font-family: monospace; color: var(--accent-blue); }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 700; }
+  .badge-open { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+  .badge-als { background: rgba(239, 68, 68, 0.3); color: #fca5a5; border: 1px solid #ef4444; }
+  
+  .progress-wrap { background: #0b1120; border-radius: 4px; height: 7px; width: 100%; margin-top: 4px; overflow: hidden; }
+  .progress-bar { width: 0%; height: 100%; background: var(--accent-green); transition: width 0.2s; }
+
+  /* RIGHT PANEL TAB SWITCHER */
+  .right-tab-bar {
+    display: flex; gap: 4px; background: rgba(11, 17, 32, 0.7);
+    padding: 3px; border-radius: 6px; border: 1px solid var(--border); margin-top: 4px;
+  }
+  .r-tab-btn {
+    flex: 1; padding: 5px 4px; border: none; background: transparent;
+    color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 4px; cursor: pointer; text-align: center;
+  }
+  .r-tab-btn.active { background: #0284c7; color: #fff; }
+  .tab-view-content { display: none; flex-direction: column; gap: 6px; margin-top: 4px; }
+
+  .als-box {
+    background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 6px;
+  }
+  .als-equip-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; font-size: 9.5px;
+  }
+  .als-equip-item {
+    background: rgba(15, 23, 42, 0.7); padding: 3px 5px; border-radius: 4px; display: flex; align-items: center; gap: 3px;
+  }
+  .tele-icu-panel-box {
+    background: rgba(15, 23, 42, 0.95); border: 1.5px solid var(--accent-blue); border-radius: 8px; padding: 8px;
+  }
+  .tele-video-mock {
+    height: 70px; background: #020617; border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; margin: 4px 0;
+  }
+  .tele-tag {
+    position: absolute; top: 3px; left: 3px; background: #ef4444; color: #fff; font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px;
+  }
+
+  /* PATIENT INTAKE FORM MODAL */
+  #patientFormModal {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 480px;
+    max-height: 90vh;
+    background: #0f172a;
+    border: 2px solid var(--accent-blue);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.85);
+    z-index: 100001;
+    overflow-y: auto;
+    padding: 22px;
+  }
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- OVERLAYS -->
+<div id="accountDrawerOverlay" onclick="toggleAccountDrawer()"></div>
+<div id="patientFormOverlay" onclick="togglePatientFormModal()"></div>
+
+<!-- PATIENT SELF-REGISTRATION & TRIAGE FORM MODAL -->
+<div id="patientFormModal">
+  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+    <div style="font-size:15px; font-weight:900; color:#fff;">📝 Emergency Patient Intake Form</div>
+    <button onclick="togglePatientFormModal()" style="background:transparent; border:none; color:#94a3b8; font-size:18px; cursor:pointer;">✕</button>
+  </div>
+
+  <form id="intakeForm" onsubmit="submitPatientIntake(event)" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
+    <div>
+      <div class="label-title">Patient Full Name</div>
+      <input type="text" id="formName" required placeholder="e.g. Amit S. Sharma" />
+    </div>
+
+    <div class="form-grid-2">
+      <div>
+        <div class="label-title">Contact Number</div>
+        <input type="tel" id="formPhone" required placeholder="+91 94220 11223" />
+      </div>
+      <div>
+        <div class="label-title">Blood Group</div>
+        <select id="formBloodGroup">
+          <option value="B+">B Positive (B+)</option>
+          <option value="O+">O Positive (O+)</option>
+          <option value="A+">A Positive (A+)</option>
+          <option value="AB+">AB Positive (AB+)</option>
+          <option value="O-">O Negative (O-)</option>
+          <option value="A-">A Negative (A-)</option>
+          <option value="B-">B Negative (B-)</option>
+          <option value="AB-">AB Negative (AB-)</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <div class="label-title" style="color:#f87171;">⚠️ Chief Medical Emergency Condition</div>
+      <input type="text" id="formCondition" required placeholder="e.g. Severe Chest Pain, Breathlessness, Fracture" />
+    </div>
+
+    <div class="form-grid-2">
+      <div>
+        <div class="label-title">Blood Pressure</div>
+        <input type="text" id="formBp" placeholder="e.g. 130/85 mmHg" />
+      </div>
+      <div>
+        <div class="label-title">Pulse Rate</div>
+        <input type="text" id="formPulse" placeholder="e.g. 110 BPM" />
+      </div>
+    </div>
+
+    <div class="form-grid-2">
+      <div>
+        <div class="label-title">Oxygen Level (SpO2 %)</div>
+        <input type="text" id="formSpo2" placeholder="e.g. 94%" />
+      </div>
+      <div>
+        <div class="label-title">Triage Severity</div>
+        <select id="formSeverity">
+          <option value="critical">Critical (ALS Mobile ICU)</option>
+          <option value="normal">Normal / Stable (BLS Unit)</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <div class="label-title">Ayushman Bharat ABHA ID</div>
+      <input type="text" id="formAbha" placeholder="91-4402-9912-3301" />
+    </div>
+
+    <div>
+      <div class="label-title">Pickup Address</div>
+      <input type="text" id="formAddress" placeholder="Plot 24, Near Garden, Trimurti Nagar, Nagpur" />
+    </div>
+
+    <button type="submit" style="margin-top:8px; padding:11px; background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-weight:800; border:none; border-radius:8px; font-size:12.5px; cursor:pointer;">
+      ✅ Save Vitals & Update Ambulance Unit
+    </button>
+  </form>
+</div>
+
+<!-- MODERN APP ACCOUNT SLIDE-OVER DRAWER -->
+<div id="accountDrawer">
+  <div class="account-hero">
+    <button class="close-drawer-btn" onclick="toggleAccountDrawer()">✕</button>
+    <div class="drawer-avatar" id="drawerAvatar">👤</div>
+    <div class="account-title" id="drawerUserName">User Profile</div>
+    <div class="account-sub" id="drawerPhoneDisplay">+91 00000 00000</div>
+    <div style="margin-top:6px;">
+      <span class="badge-role-tag" id="drawerRoleTag">VERIFIED</span>
+    </div>
+  </div>
+
+  <div class="drawer-body">
+    <div class="action-tiles-grid">
+      <div class="app-tile" onclick="alert('Green Corridors: Emergency routes active & synchronized.')">
+        <span class="icon">🚑</span>
+        <span class="title">Corridors</span>
+      </div>
+      <div class="app-tile" onclick="window.open('/er-dashboard', '_blank')">
+        <span class="icon">💳</span>
+        <span class="title">Cashless TPA</span>
+      </div>
+      <div class="app-tile" onclick="togglePatientFormModal()">
+        <span class="icon">📝</span>
+        <span class="title">Patient Form</span>
+      </div>
+    </div>
+
+    <!-- DYNAMIC ROLE SECTIONS -->
+    <div id="patientInfoSection" style="display:none; flex-direction:column; gap:10px;">
+      <div class="section-group" style="border: 1px solid rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08);">
+        <div class="section-label" style="color:#f87171;">⚠️ Patient Emergency Condition</div>
+        <div style="padding: 10px 14px;">
+          <div style="font-size:13px; font-weight:800; color:#fff;" id="patientConditionText">Acute Emergency</div>
+          <div style="font-size:11px; color:#cbd5e1; margin-top:4px;">
+            Triage Severity: <b id="patientSeverityBadge" style="text-transform:uppercase;">CRITICAL</b>
+          </div>
+          <div style="display:flex; gap:12px; font-size:11px; margin-top:6px; color:#38bdf8; font-weight:700;">
+            <span id="patientBloodBadge">🩸 Blood: B+</span>
+            <span id="patientBpBadge">🩺 BP: 130/85</span>
+            <span id="patientPulseBadge">💓 Pulse: 110 BPM</span>
+          </div>
+          <div style="font-size:10.5px; color:#94a3b8; margin-top:5px;" id="patientPickupText">
+            Pickup: Loading Address...
+          </div>
+        </div>
+      </div>
+
+      <div class="section-group" style="border: 1px solid rgba(2, 132, 199, 0.4); background: rgba(2, 132, 199, 0.08);">
+        <div class="section-label" style="color:#38bdf8;">💳 Ayushman Bharat ABHA & Insurance</div>
+        <div class="app-row-item">
+          <div class="row-left">
+            <span class="icon">🆔</span>
+            <div>
+              <div style="font-weight:700; color:#fff;" id="patientAbhaText">ABHA ID: 91-4402-9912-3301</div>
+              <div style="font-size:10px; color:#94a3b8;">Govt NHA Sandbox Linked</div>
+            </div>
+          </div>
+          <span style="font-size:10px; color:#10b981; font-weight:800;">ACTIVE</span>
+        </div>
+        <div class="app-row-item">
+          <div class="row-left">
+            <span class="icon">🏥</span>
+            <div>
+              <div style="font-weight:700; color:#fff;" id="patientInsuranceText">Star Health (Cashless Pre-Auth)</div>
+              <div style="font-size:10px; color:#94a3b8;">Pre-Auth ₹5 Lakhs Approved</div>
+            </div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="driverInfoSection" style="display:none; flex-direction:column; gap:10px;">
+      <div class="section-group" style="border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.08);">
+        <div class="section-label" style="color:#38bdf8;">🚑 Pilot & Vehicle Telemetry</div>
+        <div class="app-row-item">
+          <div class="row-left">
+            <span class="icon">🪪</span>
+            <div>
+              <div style="font-weight:700; color:#fff;" id="driverVehicleText">Vehicle Reg: MH 31 EQ 4002</div>
+              <div style="font-size:10px; color:#94a3b8;">ALS Mobile ICU Carrier</div>
+            </div>
+          </div>
+          <span style="font-size:10px; color:#10b981; font-weight:800;">GPS SYNCED</span>
+        </div>
+        <div class="app-row-item">
+          <div class="row-left">
+            <span class="icon">📍</span>
+            <div>
+              <div style="font-weight:700; color:#fff;">Base: Sitabuldi Square EMS</div>
+              <div style="font-size:10px; color:#94a3b8;">Zone 1 Corridor Ready</div>
+            </div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-group">
+      <div class="section-label">Preferences</div>
+      <div class="app-row-item">
+        <div class="row-left">
+          <span class="icon">🚨</span>
+          <span>Dual-Tone Siren Audio</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" checked onchange="toggleSirenManual()">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="app-row-item">
+        <div class="row-left">
+          <span class="icon">📡</span>
+          <span>500m Civilian Voice Override</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section-group">
+      <div class="section-label">Your Information</div>
+      <div class="app-row-item" onclick="showAddressInfo()">
+        <div class="row-left">
+          <span class="icon">📖</span>
+          <span>Address Details</span>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="app-row-item" onclick="window.open('/family-track', '_blank')">
+        <div class="row-left">
+          <span class="icon">👨‍👩‍👧</span>
+          <span>Family Tracking Portal</span>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+    </div>
+
+    <a href="/" style="text-decoration:none; text-align:center; padding:12px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; font-size:12.5px; font-weight:800; border-radius:10px; margin-top:2px;">
+      Log Out Session
+    </a>
+  </div>
+</div>
+
+<!-- CIVILIAN AUDIO BROADCAST POPUP -->
+<div id="civilianCarAlert" style="display:none; position:fixed; top:20px; right:20px; z-index:99999; width:380px; background:linear-gradient(135deg, rgba(239,68,68,0.96), rgba(15,23,42,0.98)); border:2px solid #ef4444; border-radius:14px; padding:14px; box-shadow:0 10px 40px rgba(239,68,68,0.6);">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:11.5px; font-weight:900; color:#fff;">📻 CARPLAY / ANDROID AUTO BROADCAST</span>
+    <span style="background:#fff; color:#ef4444; font-size:9.5px; font-weight:900; padding:2px 5px; border-radius:4px;">CLEAR LANE</span>
+  </div>
+  <div style="margin-top:8px; display:flex; gap:10px; align-items:center;">
+    <div style="font-size:28px;">🚨</div>
+    <div style="font-size:11.5px; font-weight:800; color:#fff; line-height:1.4;">
+      "Emergency vehicle approaching behind you in 45 seconds. <span style="color:#fde047;">Please clear the right lane!</span>"
+    </div>
+  </div>
+</div>
+
+<!-- 2-MINUTE STANDSTILL VERIFICATION PROMPT MODAL -->
+<div id="standstillModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:999999; align-items:center; justify-content:center;">
+  <div style="background:#1e1b4b; border:2px solid #f59e0b; border-radius:16px; width:440px; padding:20px; text-align:center;">
+    <div style="font-size:36px;">⏱️</div>
+    <h3 style="color:#fde68a; font-size:17px; font-weight:900; margin-top:6px;">Vehicle Stationary: 0 km/h (>90s)</h3>
+    <p style="color:#cbd5e1; font-size:12px; margin-top:6px; line-height:1.4;">
+      Driver Verification Prompt: <b>Are you stabilizing the patient (CPR / intubation), or stuck in traffic / breakdown?</b>
+    </p>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button onclick="resolveStandstillPrompt('CPR')" style="flex:1; background:#059669; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:800; font-size:11px; cursor:pointer;">
+        🩺 Patient CPR / Stabilization
+      </button>
+      <button onclick="resolveStandstillPrompt('BREAKDOWN')" style="flex:1; background:#dc2626; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:800; font-size:11px; cursor:pointer;">
+        🚨 Traffic Jam / Breakdown SOS
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="brand"><span>🚑</span> <span>AI Emergency Ambulance Corridor</span></div>
+
+  <div class="network-status-badge" id="netStatusBadge">
+    <span id="netStatusDot">●</span>
+    <span id="netStatusText">SYSTEM ACTIVE (OFFLINE READY)</span>
+  </div>
+
+  <div class="profile-container">
+    <div class="profile-badge-btn" onclick="toggleAccountDrawer()">
+      <span class="avatar-icon" id="headerAvatar">👤</span>
+      <span style="font-weight:700; color:#fff;" id="profileName">User</span>
+      <span class="badge-role-tag" id="headerRoleBadge">ROLE</span>
+      <span style="font-size:11px; color:var(--text-muted);">⚙️</span>
+    </div>
+  </div>
+</div>
+
+<!-- POLICE HUD BAR -->
+<div id="policeAlertBar">
+  <div class="police-left">
+    <div class="police-live-dot" id="policeLiveDot"></div>
+    <span style="font-size:11px; font-weight:800; color:#38bdf8;">👮 Traffic Police Radio:</span>
+    <span style="font-size:12px; font-weight:700;" id="policeMsgText">Monitoring All Major Junctions — Signals Synchronized.</span>
+  </div>
+  <button type="button" class="police-action-btn" id="policeClearBtn" onclick="policeConfirmClearance()">👮 Clear Junction</button>
+</div>
+
+<div id="workspace">
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div id="ambBox">
+      <!-- BUTTON TO OPEN PATIENT INTAKE FORM DIRECTLY -->
+      <button type="button" class="btn btn-form-trigger" onclick="togglePatientFormModal()">
+        📝 Patient Emergency Intake Form
+      </button>
+
+      <div class="label-title">Ambulance Base (Start Point)</div>
+      <select id="ambStart">
+        <option value="sitabuldi">Sitabuldi Square EMS Post</option>
+        <option value="dharampeth">Dharampeth Standby Base</option>
+        <option value="sadar">Sadar Central Post</option>
+        <option value="itwari">Itwari Market Base</option>
+      </select>
+
+      <div class="label-title">Receiving Hospital (Destination)</div>
+      <select id="ambDest">
+        <option value="aiims_ngp">AIIMS Hospital, MIHAN [12 Beds Open]</option>
+        <option value="gmc_ngp">GMC Hospital, Medical Chowk [FULL - 0 Beds]</option>
+        <option value="mayo_ngp">IGGMC (Mayo Hospital), CA Road [5 Beds Open]</option>
+        <option value="kingsway_ngp">Kingsway Hospital, Station [4 Beds Open]</option>
+        <option value="orange_city_ngp">Orange City Hospital (OCHRI) [6 Beds Open]</option>
+        <option value="alexis_ngp">Max Alexis Hospital, Mankapur [8 Beds Open]</option>
+        <option value="care_ngp">CARE Hospital, Ramdaspeth [2 Beds Open]</option>
+        <option value="wockhardt_ngp">Wockhardt Hospital [FULL - 0 Beds]</option>
+      </select>
+
+      <div class="label-title" style="color: #38bdf8; margin-top:6px;">🏠 Patient Pickup Address</div>
+      <input type="text" id="patientHomeInput" value="Plot 24, Near Garden, Trimurti Nagar, Nagpur" />
+
+      <div class="label-title" style="color: #ef4444; margin-top:6px;">🚨 Patient Severity (ALS Trigger)</div>
+      <select id="severitySelect" onchange="updateAlsDispatch(this.value)">
+        <option value="critical">🚨 Critical / Unconscious (ALS Mobile ICU)</option>
+        <option value="normal">Normal / Stable (Standard BLS Unit)</option>
+      </select>
+
+      <!-- BUTTONS -->
+      <div class="btn-grid">
+        <button class="btn btn-amb" onclick="dispatch(false)">Dispatch Fast Path</button>
+        <button class="btn btn-jam" onclick="dispatch(true)">Simulate Jam & Reroute</button>
+        <button class="btn btn-auto" onclick="autoRouteCapacity()">⚡ Auto-Route to Nearest ER</button>
+        <button class="btn btn-reset" onclick="resetCorridor()">Reset System</button>
+      </div>
+
+      <!-- ACCORDION -->
+      <div class="accordion-btn" onclick="toggleExtraMenu()">
+        <span>🛠️ Advanced Protocols & Overrides</span>
+        <span id="accordionArrow">▼</span>
+      </div>
+
+      <div class="accordion-content" id="extraToolsMenu">
+        <button type="button" class="btn btn-medical-halt" id="medicalHaltBtn" onclick="toggleMedicalHalt()">
+          🩺 Paramedic Medical Halt (CPR / Intubation)
+        </button>
+        <button type="button" class="btn" style="background:#dc2626; color:#fff;" onclick="speakCivilianAlert()">
+          📻 Test 500m Civilian Voice Broadcast
+        </button>
+        <button type="button" class="btn" style="background:#f59e0b; color:#000; font-weight:800;" onclick="simulateStandstillProtocol()">
+          ⏱️ Simulate Standstill (2-Minute Rule)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER MAP -->
+  <div id="center-display">
+    <svg id="mapSvg" viewBox="0 0 950 640">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="950" height="640" fill="url(#grid)" />
+
+      <!-- NAGPUR ROADS -->
+      <line x1="470" y1="210" x2="630" y2="580" stroke="#1e293b" stroke-width="20" stroke-linecap="round" />
+      <line x1="470" y1="210" x2="630" y2="580" stroke="#334155" stroke-width="7" stroke-linecap="round" />
+      <text x="560" y="420" fill="#64748b" font-size="10" font-weight="bold" transform="rotate(66 560,420)">WARDHA ROAD (TO MIHAN)</text>
+
+      <line x1="120" y1="220" x2="470" y2="210" stroke="#1e293b" stroke-width="18" stroke-linecap="round" />
+      <line x1="120" y1="220" x2="470" y2="210" stroke="#334155" stroke-width="6" stroke-linecap="round" />
+      <text x="210" y="200" fill="#64748b" font-size="10" font-weight="bold">AMRAVATI ROAD</text>
+
+      <line x1="470" y1="210" x2="840" y2="210" stroke="#1e293b" stroke-width="18" stroke-linecap="round" />
+      <line x1="470" y1="210" x2="840" y2="210" stroke="#334155" stroke-width="6" stroke-linecap="round" />
+      <text x="680" y="200" fill="#64748b" font-size="10" font-weight="bold">CENTRAL AVENUE (CA ROAD)</text>
+
+      <line x1="470" y1="210" x2="470" y2="60" stroke="#1e293b" stroke-width="18" stroke-linecap="round" />
+      <line x1="470" y1="210" x2="470" y2="60" stroke="#334155" stroke-width="6" stroke-linecap="round" />
+      <text x="480" y="110" fill="#64748b" font-size="10" font-weight="bold">KORADI ROAD</text>
+
+      <path d="M 220 460 Q 470 490 750 440" fill="none" stroke="#1e293b" stroke-width="18" stroke-linecap="round" />
+      <path d="M 220 460 Q 470 490 750 440" fill="none" stroke="#334155" stroke-width="6" stroke-linecap="round" />
+      <text x="310" y="465" fill="#64748b" font-size="10" font-weight="bold">RING ROAD</text>
+
+      <line x1="470" y1="210" x2="220" y2="460" stroke="#1e293b" stroke-width="14" stroke-linecap="round" />
+      <line x1="470" y1="210" x2="220" y2="460" stroke="#334155" stroke-width="5" stroke-linecap="round" />
+
+      <!-- SIGNALS -->
+      <g id="junc_sitabuldi" transform="translate(470, 210)"><circle r="13" fill="#0f172a" stroke="#38bdf8" stroke-width="2" /><circle id="sig_sitabuldi" cx="0" cy="0" r="5" fill="#ef4444" /><text x="-4" y="-16" fill="#94a3b8" font-size="10" font-weight="bold">Sitabuldi Chowk</text></g>
+      <g id="junc_rahate" transform="translate(500, 280)"><circle r="13" fill="#0f172a" stroke="#38bdf8" stroke-width="2" /><circle id="sig_rahate" cx="0" cy="0" r="5" fill="#ef4444" /><text x="18" y="4" fill="#94a3b8" font-size="10" font-weight="bold">Rahate Chowk 👮</text></g>
+      <g id="junc_medical" transform="translate(570, 290)"><circle r="13" fill="#0f172a" stroke="#38bdf8" stroke-width="2" /><circle id="sig_medical" cx="0" cy="0" r="5" fill="#ef4444" /><text x="18" y="4" fill="#94a3b8" font-size="10" font-weight="bold">Medical Chowk 👮</text></g>
+      <g id="junc_chatrapati" transform="translate(545, 380)"><circle r="13" fill="#0f172a" stroke="#38bdf8" stroke-width="2" /><circle id="sig_chatrapati" cx="0" cy="0" r="5" fill="#ef4444" /><text x="18" y="4" fill="#94a3b8" font-size="10" font-weight="bold">Chatrapati Sq 👮</text></g>
+      <g id="junc_mihan" transform="translate(615, 500)"><circle r="13" fill="#0f172a" stroke="#38bdf8" stroke-width="2" /><circle id="sig_mihan" cx="0" cy="0" r="5" fill="#ef4444" /><text x="18" y="4" fill="#94a3b8" font-size="10" font-weight="bold">MIHAN Flyover 👮</text></g>
+
+      <!-- HOSPITALS -->
+      <g id="pin_aiims" transform="translate(630, 580)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-6" y="5" font-size="13">🏥</text><text x="16" y="4" fill="#ef4444" font-size="10" font-weight="bold">AIIMS (MIHAN)</text></g>
+      <g id="pin_gmc" transform="translate(580, 270)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-6" y="5" font-size="13">🏥</text><text x="16" y="4" fill="#cbd5e1" font-size="10">GMC Medical</text></g>
+      <g id="pin_mayo" transform="translate(640, 190)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-10" y="-14" fill="#cbd5e1" font-size="10">Mayo Hospital</text></g>
+      <g id="pin_alexis" transform="translate(470, 70)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-6" y="5" font-size="13">🏥</text><text x="16" y="4" fill="#cbd5e1" font-size="10">Max Alexis</text></g>
+      <g id="pin_kingsway" transform="translate(510, 160)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-6" y="5" font-size="13">🏥</text><text x="16" y="4" fill="#cbd5e1" font-size="10">Kingsway</text></g>
+      <g id="pin_ochri" transform="translate(320, 390)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-120" y="4" fill="#cbd5e1" font-size="10">Orange City</text></g>
+      <g id="pin_wockhardt" transform="translate(360, 270)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-95" y="4" fill="#cbd5e1" font-size="10">Wockhardt</text></g>
+      <g id="pin_care" transform="translate(430, 250)"><circle r="11" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" /><text x="-80" y="16" fill="#cbd5e1" font-size="10">CARE Hospital</text></g>
+
+      <!-- CORRIDOR PATHS -->
+      <path id="corridorPath" d="" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" />
+      <path id="bypassPath" d="" fill="none" stroke="#ef4444" stroke-width="7" stroke-linecap="round" stroke-dasharray="6,6" style="display:none;" />
+
+      <!-- JAM MARKER -->
+      <g id="jamMarker" style="display:none;">
+        <circle cx="530" cy="340" r="28" fill="rgba(239, 68, 68, 0.4)" stroke="#ef4444" stroke-width="2.5" />
+        <text x="520" y="347" font-size="20">⚠️</text>
+      </g>
+
+      <g id="patientHomeNode" transform="translate(350, 240)">
+        <circle r="14" fill="#0284c7" stroke="#38bdf8" stroke-width="3" />
+        <text x="-8" y="5" font-size="14">🏠</text>
+        <text id="patientHomeLabel" x="18" y="4" fill="#38bdf8" font-size="11" font-weight="bold">Plot 24, Trimurti Nagar</text>
+      </g>
+
+      <g id="originNode" transform="translate(470, 210)">
+        <circle r="14" fill="#0284c7" stroke="#38bdf8" stroke-width="3" />
+        <text id="originLabel" x="18" y="5" fill="#38bdf8" font-size="11" font-weight="bold">📍 Sitabuldi EMS Post</text>
+      </g>
+
+      <g id="backupAmbulanceSprite" transform="translate(420, 360)" style="display:none;">
+        <circle r="22" fill="rgba(239, 68, 68, 0.3)" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" />
+        <text x="-12" y="9" font-size="22">🚑</text>
+        <text x="25" y="4" fill="#fca5a5" font-size="10.5" font-weight="bold">Backup Unit: MH 31 BK 9001</text>
+      </g>
+
+      <g id="geoFenceWave" transform="translate(470, 210)" style="display:none;">
+        <circle r="75" fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,4">
+          <animate attributeName="r" values="50;85;50" dur="1.8s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.8s" repeatCount="indefinite" />
+        </circle>
+        <text x="35" y="-55" fill="#fca5a5" font-size="9.5" font-weight="bold">📡 500m Sound Wave Geo-Fence</text>
+      </g>
+
+      <g id="vehicleSprite" transform="translate(470, 210)">
+        <circle r="19" fill="rgba(56, 189, 248, 0.3)" stroke="#38bdf8" stroke-width="2" />
+        <text id="vehicleIcon" x="-11" y="9" font-size="22">🚑</text>
+      </g>
+    </svg>
+
+    <div class="console" id="consoleLog">
+      <div class="log-line">[SYS] Nagpur Emergency Telematics Online. System Ready.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel panel-right">
+    <div class="tile">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="metric" id="etaDisplay">--:--</div>
+        <span style="color:var(--accent-green); font-weight:700; font-size:11px;" id="signalText">STANDBY</span>
+      </div>
+      <div style="font-size: 10px; color: var(--text-muted);" id="distDisplay">0.00 KM TOTAL DISTANCE</div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div style="font-size:9.5px; color:var(--text-muted); margin-top:3px; display:flex; justify-content:space-between;">
+        <span id="percentText">0% Covered</span>
+        <span id="smsText">SMS: Standby</span>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL CATEGORY SWITCHER -->
+    <div class="right-tab-bar">
+      <button class="r-tab-btn active" id="btnTab1" onclick="switchRightTab('tabDoc')">🏥 Hospital & Doctor</button>
+      <button class="r-tab-btn" id="btnTab2" onclick="switchRightTab('tabTele')">📡 Tele-ICU</button>
+      <button class="r-tab-btn" id="btnTab3" onclick="switchRightTab('tabExt')">📲 Tracking & ER</button>
+    </div>
+
+    <!-- TAB 1: DOCTOR & HOSPITAL -->
+    <div class="tab-view-content" id="tabDoc" style="display:flex;">
+      <div class="tile als-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11.5px; font-weight:800; color:#fff;" id="unitName">ALS Mobile ICU-108</span>
+          <span id="unitBadge" class="badge badge-als">CRITICAL ALS</span>
+        </div>
+        <div style="font-size:10.5px; color:#fca5a5; margin-top:1px;" id="unitDoctor">👨‍⚕️ Dr. Aditi Sharma (Resident ER Physician)</div>
+        <div class="als-equip-grid">
+          <div class="als-equip-item"><span>🫁</span> Ventilator: <b style="color:#10b981;">ACTIVE</b></div>
+          <div class="als-equip-item"><span>⚡</span> Defibrillator: <b style="color:#10b981;">READY</b></div>
+          <div class="als-equip-item"><span>💉</span> Infusion Pump: <b style="color:#10b981;">ARMED</b></div>
+          <div class="als-equip-item"><span>🩺</span> Paramedic: <b style="color:#10b981;">ONBOARD</b></div>
+        </div>
+      </div>
+
+      <div class="tile" style="border:1px solid rgba(56,189,248,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11.5px; font-weight:800; color:#fff;" id="targetName">AIIMS Hospital, MIHAN</span>
+          <span class="badge badge-open">12 BEDS OPEN</span>
+        </div>
+        <div style="font-size:13px; font-weight:900; color:var(--accent-blue); margin-top:3px;">📞 +91 712 298 5555</div>
+        <div style="font-size:9.5px; color:var(--text-muted); margin-top:2px;" id="pickupName">Pickup: Sitabuldi EMS Post</div>
+      </div>
+    </div>
+
+    <!-- TAB 2: TELE-ICU STREAM -->
+    <div class="tab-view-content" id="tabTele">
+      <div class="tele-icu-panel-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px;">
+          <span style="font-weight:800; color:#fff;">Dr. Rajesh Sen (AIIMS ER Senior Specialist)</span>
+          <span style="color:var(--accent-green); font-weight:800; font-size:9px;">● 4K LIVE</span>
+        </div>
+        <div class="tele-video-mock">
+          <div class="tele-tag">LIVE FEED</div>
+          <span style="font-size:26px;">👨‍⚕️</span>
+        </div>
+        <div style="font-size:9.5px; color:#cbd5e1; line-height:1.3;">
+          "Paramedic: Continue chest compressions at 110/min. Prepare 1mg Epinephrine IV."
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: FAMILY & ER RED SHEET -->
+    <div class="tab-view-content" id="tabExt">
+      <div class="tile" style="border:1px dashed rgba(16,185,129,0.4); background:rgba(16,185,129,0.08); padding:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px; font-weight:800; color:#fff;">Live Family Tracking Portal</span>
+          <span class="badge badge-open">LINK READY</span>
+        </div>
+        <a href="/family-track" target="_blank" style="display:block; text-align:center; background:#0284c7; color:#fff; text-decoration:none; padding:6px; border-radius:6px; font-weight:800; font-size:10.5px; margin-top:5px;">
+          📲 PREVIEW FAMILY TRACKING VIEW ➔
+        </a>
+      </div>
+
+      <a href="/er-dashboard" target="_blank" style="display:block; text-align:center; background:linear-gradient(135deg, #ef4444, #b91c1c); color:#fff; text-decoration:none; padding:8px; border-radius:6px; font-weight:800; font-size:11px; border:1px solid #f87171;">
+        🏥 OPEN ER DIGITAL RED SHEET BAY ➔
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // DYNAMIC URL PARAMETERS POPULATION
+  const urlParams = new URLSearchParams(window.location.search);
+  let userRole = urlParams.get('role') || 'driver';
+  let userName = urlParams.get('name') || (userRole === 'driver' ? 'Rajesh Kumar Verma' : 'Amit S. Sharma');
+  let userPhone = urlParams.get('phone') || (userRole === 'driver' ? '+91 98231 44550' : '+91 94220 11223');
+  let userVehicle = urlParams.get('vehicle') || 'MH 31 EQ 4002';
+  let userAddress = urlParams.get('address') || 'Plot 24, Near Garden, Trimurti Nagar';
+  let userCity = urlParams.get('city') || 'Nagpur';
+  let userSeverity = urlParams.get('severity') || 'critical';
+  let userAbha = urlParams.get('abha_id') || '91-4402-9912-3301';
+  let userInsurance = urlParams.get('insurance_provider') || 'Star Health (Cashless Pre-Auth)';
+  let userBloodGroup = 'B+';
+  let userBp = '130/85 mmHg';
+  let userPulse = '110 BPM';
+  let userSpo2 = '94%';
+  
+  // DEFAULT CONDITION
+  let userCondition = urlParams.get('condition') || ((userSeverity === 'critical') 
+    ? 'Acute Myocardial Infarction (Severe Chest Pain & Unconscious)' 
+    : 'Accidental Trauma & Fracture Stabilization');
+
+  function renderUserData() {
+    document.getElementById('profileName').innerText = userName;
+    document.getElementById('drawerUserName').innerText = userName;
+    document.getElementById('drawerPhoneDisplay').innerText = userPhone;
+    document.getElementById('patientHomeInput').value = userAddress + ', ' + userCity;
+    document.getElementById('patientHomeLabel').textContent = userAddress;
+
+    if (userRole === 'patient') {
+      document.getElementById('headerAvatar').innerText = '👤';
+      document.getElementById('drawerAvatar').innerText = '👤';
+      document.getElementById('headerRoleBadge').className = 'badge-role-tag tag-patient';
+      document.getElementById('headerRoleBadge').innerText = 'PATIENT';
+      document.getElementById('drawerRoleTag').className = 'badge-role-tag tag-patient';
+      document.getElementById('drawerRoleTag').innerText = 'PATIENT / CALLER VERIFIED';
+      
+      document.getElementById('patientInfoSection').style.display = 'flex';
+      document.getElementById('driverInfoSection').style.display = 'none';
+
+      document.getElementById('patientConditionText').innerText = userCondition;
+      document.getElementById('patientSeverityBadge').innerText = (userSeverity === 'critical') ? 'CRITICAL (ALS)' : 'STABLE (BLS)';
+      document.getElementById('patientSeverityBadge').style.color = (userSeverity === 'critical') ? '#ef4444' : '#10b981';
+      document.getElementById('patientPickupText').innerText = 'Pickup: ' + userAddress + ', ' + userCity;
+      document.getElementById('patientAbhaText').innerText = 'ABHA ID: ' + userAbha;
+      document.getElementById('patientInsuranceText').innerText = userInsurance;
+      document.getElementById('patientBloodBadge').innerText = '🩸 Blood: ' + userBloodGroup;
+      document.getElementById('patientBpBadge').innerText = '🩺 BP: ' + userBp;
+      document.getElementById('patientPulseBadge').innerText = '💓 Pulse: ' + userPulse;
+    } else {
+      document.getElementById('headerAvatar').innerText = '🚑';
+      document.getElementById('drawerAvatar').innerText = '🚑';
+      document.getElementById('headerRoleBadge').className = 'badge-role-tag tag-driver';
+      document.getElementById('headerRoleBadge').innerText = 'DRIVER';
+      document.getElementById('drawerRoleTag').className = 'badge-role-tag tag-driver';
+      document.getElementById('drawerRoleTag').innerText = 'ACTIVE EMS PILOT';
+
+      document.getElementById('driverInfoSection').style.display = 'flex';
+      document.getElementById('patientInfoSection').style.display = 'none';
+      document.getElementById('driverVehicleText').innerText = 'Vehicle Reg: ' + userVehicle;
+    }
+
+    // Prefill form
+    document.getElementById('formName').value = userName;
+    document.getElementById('formPhone').value = userPhone;
+    document.getElementById('formCondition').value = userCondition;
+    document.getElementById('formBloodGroup').value = userBloodGroup;
+    document.getElementById('formBp').value = userBp;
+    document.getElementById('formPulse').value = userPulse;
+    document.getElementById('formSpo2').value = userSpo2;
+    document.getElementById('formAbha').value = userAbha;
+    document.getElementById('formAddress').value = userAddress;
+    document.getElementById('formSeverity').value = userSeverity;
+  }
+
+  // PATIENT INTAKE FORM CONTROLS
+  function togglePatientFormModal() {
+    const modal = document.getElementById('patientFormModal');
+    const overlay = document.getElementById('patientFormOverlay');
+    const isOpen = modal.style.display === 'block';
+    modal.style.display = isOpen ? 'none' : 'block';
+    overlay.style.display = isOpen ? 'none' : 'block';
+  }
+
+  function submitPatientIntake(e) {
+    e.preventDefault();
+    
+    const patientPayload = {
+      name: document.getElementById('formName').value,
+      phone: document.getElementById('formPhone').value,
+      condition: document.getElementById('formCondition').value,
+      blood_group: document.getElementById('formBloodGroup').value,
+      bp: document.getElementById('formBp').value || '120/80 mmHg',
+      pulse: document.getElementById('formPulse').value || '98 BPM',
+      spo2: document.getElementById('formSpo2').value || '96%',
+      severity: document.getElementById('formSeverity').value,
+      abha_id: document.getElementById('formAbha').value || '91-4402-9912-3301',
+      address: document.getElementById('formAddress').value || 'Nagpur'
+    };
+
+    // Database API call
+    fetch('/api/save-patient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patientPayload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      userRole = 'patient';
+      userName = patientPayload.name;
+      userPhone = patientPayload.phone;
+      userCondition = patientPayload.condition;
+      userBloodGroup = patientPayload.blood_group;
+      userBp = patientPayload.bp;
+      userPulse = patientPayload.pulse;
+      userSpo2 = patientPayload.spo2;
+      userSeverity = patientPayload.severity;
+      userAbha = patientPayload.abha_id;
+      userAddress = patientPayload.address;
+
+      document.getElementById('severitySelect').value = userSeverity;
+      updateAlsDispatch(userSeverity);
+
+      renderUserData();
+      togglePatientFormModal();
+
+      log(`[DATABASE] Patient details saved to patients.db: ${userName}`, true);
+      alert('✅ Patient details database me save ho gayi!');
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Database saving error!');
+    });
+  }
+
+  // INITIALIZE
+  renderUserData();
+
+  let mode = 'ambulance';
+  let driveTimer = null;
+  let isMedicalHalt = false;
+  let isDriving = false;
+  let savedPathLen = 0;
+  let currentDist = 0;
+  let speed = 0.65;
+  let hasBroadcasted = false;
+  let smsSent = false;
+  let isAlsCritical = true;
+
+  function showAddressInfo() {
+    alert("Pickup Address: " + document.getElementById("patientHomeInput").value);
+  }
+
+  function updateNetworkStatus() {
+    const badge = document.getElementById('netStatusBadge');
+    const text = document.getElementById('netStatusText');
+    if (!badge || !text) return;
+    if (navigator.onLine) {
+      badge.className = "network-status-badge";
+      text.innerText = "SYSTEM ACTIVE (ONLINE / SYNCED)";
+    } else {
+      badge.className = "network-status-badge offline";
+      text.innerText = "OFFLINE MODE (LOCAL TELEMETRY ACTIVE)";
+      log("[NETWORK] Disconnected. Running smoothly on local offline cache.", true);
+    }
+  }
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+
+  function toggleAccountDrawer() {
+    const drawer = document.getElementById('accountDrawer');
+    const overlay = document.getElementById('accountDrawerOverlay');
+    if (!drawer || !overlay) return;
+    if (drawer.classList.contains('open')) {
+      drawer.classList.remove('open');
+      overlay.style.display = 'none';
+    } else {
+      drawer.classList.add('open');
+      overlay.style.display = 'block';
+    }
+  }
+
+  function switchRightTab(tabId) {
+    ['tabDoc', 'tabTele', 'tabExt'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    ['btnTab1', 'btnTab2', 'btnTab3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'r-tab-btn';
+    });
+    
+    const target = document.getElementById(tabId);
+    if (target) target.style.display = 'flex';
+    if (tabId === 'tabDoc') document.getElementById('btnTab1').className = 'r-tab-btn active';
+    if (tabId === 'tabTele') document.getElementById('btnTab2').className = 'r-tab-btn active';
+    if (tabId === 'tabExt') document.getElementById('btnTab3').className = 'r-tab-btn active';
+  }
+
+  function toggleExtraMenu() {
+    const menu = document.getElementById('extraToolsMenu');
+    const arrow = document.getElementById('accordionArrow');
+    if (!menu || !arrow) return;
+    if (menu.style.display === 'flex') {
+      menu.style.display = 'none';
+      arrow.innerText = '▼';
+    } else {
+      menu.style.display = 'flex';
+      arrow.innerText = '▲';
+    }
+  }
+
+  let audioCtx = null;
+  let sirenOsc = null;
+  let sirenGain = null;
+  let sirenInterval = null;
+  let isSirenOn = false;
+
+  function initAudioContext() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function startSirenSound() {
+    try {
+      initAudioContext();
+      if (sirenOsc) return;
+
+      sirenOsc = audioCtx.createOscillator();
+      sirenGain = audioCtx.createGain();
+
+      sirenOsc.type = 'sawtooth';
+      sirenGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      sirenOsc.connect(sirenGain);
+      sirenGain.connect(audioCtx.destination);
+      sirenOsc.start();
+      isSirenOn = true;
+
+      let toggle = false;
+      sirenInterval = setInterval(() => {
+        if (!sirenOsc) return;
+        const targetFreq = toggle ? 750 : 960;
+        sirenOsc.frequency.exponentialRampToValueAtTime(targetFreq, audioCtx.currentTime + 0.18);
+        toggle = !toggle;
+      }, 350);
+      log("[AUDIO] Dual-tone Emergency Siren activated.");
+    } catch(err) {
+      console.log("Audio unlock:", err);
+    }
+  }
+
+  function stopSirenSound() {
+    if (sirenInterval) clearInterval(sirenInterval);
+    if (sirenOsc) {
+      try { sirenOsc.stop(); sirenOsc.disconnect(); } catch(e) {}
+      sirenOsc = null;
+    }
+    isSirenOn = false;
+  }
+
+  function toggleSirenManual() {
+    initAudioContext();
+    if (isSirenOn) stopSirenSound();
+    else startSirenSound();
+  }
+
+  let standstillSeconds = 0;
+  let standstillInterval = null;
+
+  function simulateStandstillProtocol() {
+    if (isMedicalHalt) return;
+    stopSirenSound();
+    if (driveTimer) clearInterval(driveTimer);
+    document.getElementById('signalText').innerText = "STATIONARY (0 KM/H)";
+    document.getElementById('signalText').style.color = "#f59e0b";
+
+    log("[STANDSTILL] Speed 0 km/h. 2-minute standstill rule activated.", true);
+    standstillSeconds = 0;
+    if (standstillInterval) clearInterval(standstillInterval);
+
+    standstillInterval = setInterval(() => {
+      standstillSeconds += 30;
+      if (standstillSeconds === 90) {
+        document.getElementById('standstillModal').style.display = 'flex';
+        log("[PROMPT] Driver confirmation prompt: Stabilization vs Jam/Breakdown?", true);
+      }
+      if (standstillSeconds >= 120) {
+        clearInterval(standstillInterval);
+        document.getElementById('standstillModal').style.display = 'none';
+        triggerLevel1EscalationProtocol();
+      }
+    }, 1200);
+  }
+
+  function resolveStandstillPrompt(decision) {
+    document.getElementById('standstillModal').style.display = 'none';
+    if (standstillInterval) clearInterval(standstillInterval);
+    if (decision === 'CPR') {
+      log("[VERIFIED] Patient stabilization procedure active. False SOS alert suppressed.");
+      toggleMedicalHalt();
+    } else {
+      triggerLevel1EscalationProtocol();
+    }
+  }
+
+  function triggerLevel1EscalationProtocol() {
+    log("[ESCALATION] Vehicle standstill >120s unresolved!", true);
+    document.getElementById('backupAmbulanceSprite').style.display = 'block';
+    alert("🚨 LEVEL-1 ESCALATION PROTOCOL ACTIVATED!\n\n1. Hospital ER: Timeline extended by 8 mins\n2. Backup Unit MH 31 BK 9001 dispatched\n3. Family Portal: Reassuring soft-halt status broadcasted.");
+  }
+
+  function toggleMedicalHalt() {
+    const btn = document.getElementById('medicalHaltBtn');
+    if (!isMedicalHalt) {
+      isMedicalHalt = true;
+      btn.className = "btn btn-medical-halt halt-active";
+      btn.innerText = "▶️ RESUME TRANSIT (PROCEDURE COMPLETE)";
+      stopSirenSound();
+      if (driveTimer) clearInterval(driveTimer);
+      if (standstillInterval) clearInterval(standstillInterval);
+      document.getElementById('standstillModal').style.display = 'none';
+      document.getElementById('signalText').innerText = "MEDICAL HALT (CPR)";
+      document.getElementById('signalText').style.color = "#fda4af";
+      log("[OVERRIDE] Paramedic halted ambulance safely for CPR / Intubation.", true);
+    } else {
+      isMedicalHalt = false;
+      btn.className = "btn btn-medical-halt";
+      btn.innerText = "🩺 Paramedic Medical Halt (CPR / Intubation)";
+      startSirenSound();
+      log("[PARAMEDIC] Patient stabilized. Transit resumed.");
+      document.getElementById('signalText').innerText = "CORRIDOR ACTIVE";
+      document.getElementById('signalText').style.color = "var(--accent-green)";
+      if (isDriving) resumeVehicleDrive();
+    }
+  }
+
+  function speakCivilianAlert() {
+    const alertBox = document.getElementById('civilianCarAlert');
+    if (alertBox) alertBox.style.display = 'block';
+    try {
+      window.speechSynthesis.cancel();
+      const speech = new SpeechSynthesisUtterance("Emergency vehicle approaching behind you in 45 seconds. Please clear the right lane.");
+      speech.rate = 0.95;
+      speech.lang = 'en-US';
+      window.speechSynthesis.speak(speech);
+      log("[BROADCAST] Sent 500m acoustic voice broadcast to civilian vehicles!", true);
+    } catch(e) {}
+    setTimeout(() => { if (alertBox) alertBox.style.display = 'none'; }, 8000);
+  }
+
+  function log(msg, alertMode = false) {
+    const con = document.getElementById('consoleLog');
+    if (!con) return;
+    const div = document.createElement('div');
+    div.className = alertMode ? 'log-line log-alert' : 'log-line';
+    div.innerText = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    con.appendChild(div);
+    con.scrollTop = con.scrollHeight;
+  }
+
+  function setSignalGreen(signalId) {
+    const el = document.getElementById(signalId);
+    if (el) el.setAttribute('fill', '#10b981');
+  }
+
+  function setAllSignalsRed() {
+    ['sig_sitabuldi', 'sig_rahate', 'sig_medical', 'sig_chatrapati', 'sig_mihan'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('fill', '#ef4444');
+    });
+  }
+
+  function updateAlsDispatch(level) {
+    const unitBadge = document.getElementById('unitBadge');
+    const unitName = document.getElementById('unitName');
+    const unitDoctor = document.getElementById('unitDoctor');
+
+    if (level === 'critical') {
+      isAlsCritical = true;
+      unitName.innerText = "ALS Mobile ICU-108";
+      unitBadge.innerText = "CRITICAL ALS";
+      unitBadge.className = "badge badge-als";
+      unitDoctor.innerText = "👨‍⚕️ Dr. Aditi Sharma (Resident ER Physician)";
+      log("[ALS] Critical emergency selected. Mobile ICU & Tele-ICU armed!", true);
+    } else {
+      isAlsCritical = false;
+      unitName.innerText = "BLS Standard Unit-108";
+      unitBadge.innerText = "STANDARD BLS";
+      unitBadge.className = "badge badge-open";
+      unitDoctor.innerText = "👨‍⚕️ Paramedic First-Aid Staff Onboard";
+      log("[BLS] Standard BLS unit assigned.");
+    }
+  }
+
+  function dispatch(withJam) {
+    resetCorridor();
+    setAllSignalsRed();
+    startSirenSound();
+
+    const corridor = document.getElementById('corridorPath');
+    const bypass = document.getElementById('bypassPath');
+    const jamMarker = document.getElementById('jamMarker');
+
+    let pathD = "";
+    if (withJam) {
+      pathD = "M 470 210 L 500 280 L 380 340 L 420 440 L 630 580";
+      bypass.setAttribute('d', "M 500 280 L 545 380");
+      bypass.style.display = 'block';
+      jamMarker.style.display = 'block';
+      log("[TRAFFIC] Traffic jam detected on arterial path! Alternate bypass active.", true);
+    } else {
+      pathD = "M 470 210 L 350 240 L 500 280 L 545 380 L 615 500 L 630 580";
+      log("[GREEN WAVE] Wardha Road corridor signals synchronized to GREEN.");
+    }
+
+    corridor.setAttribute('d', pathD);
+    savedPathLen = corridor.getTotalLength();
+    currentDist = 0;
+    isDriving = true;
+
+    document.getElementById('signalText').innerText = "CORRIDOR ACTIVE";
+    document.getElementById('distDisplay').innerText = (savedPathLen / 40).toFixed(2) + " KM TOTAL DISTANCE";
+
+    resumeVehicleDrive();
+  }
+
+  function resumeVehicleDrive() {
+    const corridor = document.getElementById('corridorPath');
+    driveTimer = setInterval(() => {
+      currentDist += speed;
+      const progress = Math.min(100, Math.floor((currentDist / savedPathLen) * 100));
+
+      document.getElementById('progressBar').style.width = progress + '%';
+      document.getElementById('percentText').innerText = progress + '% Covered';
+
+      const remSeconds = Math.max(0, Math.floor((savedPathLen - currentDist) / speed));
+      const mins = Math.floor(remSeconds / 60);
+      const secs = remSeconds % 60;
+      document.getElementById('etaDisplay').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+      if (currentDist <= savedPathLen) {
+        const pt = corridor.getPointAtLength(currentDist);
+        document.getElementById('vehicleSprite').setAttribute('transform', `translate(${pt.x}, ${pt.y})`);
+        document.getElementById('geoFenceWave').style.display = 'block';
+        document.getElementById('geoFenceWave').setAttribute('transform', `translate(${pt.x}, ${pt.y})`);
+
+        if (progress >= 25 && !hasBroadcasted) {
+          hasBroadcasted = true;
+          speakCivilianAlert();
+        }
+
+        if (progress > 20 && progress < 45) {
+          setSignalGreen('sig_sitabuldi');
+          setSignalGreen('sig_rahate');
+        } else if (progress >= 45 && progress < 70) {
+          setSignalGreen('sig_medical');
+          setSignalGreen('sig_chatrapati');
+        } else if (progress >= 70 && progress < 90) {
+          setSignalGreen('sig_mihan');
+        }
+
+        if (progress >= 80 && !smsSent) {
+          smsSent = true;
+          document.getElementById('smsText').innerText = "SMS: Trauma Bay Armed";
+          document.getElementById('smsText').style.color = "var(--accent-green)";
+          log("[HOSPITAL ER] Digital Red Sheet & Cath Lab ready for intake.");
+        }
+      } else {
+        clearInterval(driveTimer);
+        stopSirenSound();
+        isDriving = false;
+        document.getElementById('signalText').innerText = "ARRIVED";
+        log("[COMPLETE] Patient delivered safely to AIIMS Trauma Bay.");
+      }
+    }, 40);
+  }
+
+  function resetCorridor() {
+    if (driveTimer) clearInterval(driveTimer);
+    if (standstillInterval) clearInterval(standstillInterval);
+    stopSirenSound();
+    smsSent = false;
+    hasBroadcasted = false;
+    isDriving = false;
+    isMedicalHalt = false;
+    currentDist = 0;
+
+    const btn = document.getElementById('medicalHaltBtn');
+    if (btn) {
+      btn.className = "btn btn-medical-halt";
+      btn.innerText = "🩺 Paramedic Medical Halt (CPR / Intubation)";
+    }
+
+    document.getElementById('standstillModal').style.display = 'none';
+    document.getElementById('backupAmbulanceSprite').style.display = 'none';
+    document.getElementById('corridorPath').setAttribute('d', '');
+    document.getElementById('bypassPath').style.display = 'none';
+    document.getElementById('jamMarker').style.display = 'none';
+    document.getElementById('geoFenceWave').style.display = 'none';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('percentText').innerText = '0% Covered';
+    document.getElementById('etaDisplay').innerText = '--:--';
+    document.getElementById('distDisplay').innerText = '0.00 KM TOTAL DISTANCE';
+    document.getElementById('signalText').innerText = 'STANDBY';
+    document.getElementById('signalText').style.color = "var(--accent-green)";
+    setAllSignalsRed();
+    document.getElementById('vehicleSprite').setAttribute('transform', `translate(470, 210)`);
+    log("[RESET] Corridor reset to standby mode.");
+  }
+
+  function autoRouteCapacity() {
+    log("[AI TRIAGE] Rerouted to nearest available ER: AIIMS Hospital");
+    dispatch(false);
+  }
+
+  function policeConfirmClearance() {
+    setSignalGreen('sig_rahate');
+    log("[POLICE HQ] Officer on-duty confirmed manual green override.");
+  }
+
+  window.addEventListener('DOMContentLoaded', updateNetworkStatus);
+</script>
+</body>
+</html>

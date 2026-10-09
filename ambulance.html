@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Emergency Corridor System</title>
+<style>
+  :root {
+    --bg-base: #0b1120;
+    --card-bg: #1e293b;
+    --border: #334155;
+    --accent-blue: #38bdf8;
+    --accent-orange: #ea580c;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --text-light: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-base);
+    color: var(--text-light);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #header {
+    height: 52px;
+    background: #0f172a;
+    border-bottom: 2px solid var(--border);
+    padding: 0 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .brand { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .tabs { display: flex; gap: 8px; }
+  .tab-btn {
+    padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 800;
+    cursor: pointer; transition: 0.2s;
+  }
+  .tab-btn.active-amb { background: #0284c7; color: #fff; border-color: var(--accent-blue); }
+  .tab-btn.active-fire { background: var(--accent-orange); color: #fff; border-color: #f97316; }
+
+  #workspace { display: flex; height: calc(100vh - 52px); }
+  .panel {
+    width: 340px; background: #0f172a; padding: 12px;
+    display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+  }
+  .panel-left { border-right: 1px solid var(--border); }
+  .panel-right { width: 300px; border-left: 1px solid var(--border); }
+  .label-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+  select, input {
+    width: 100%; padding: 9px; background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 6px; color: #fff; font-size: 12px; outline: none; margin-top: 2px;
+  }
+  select:focus, input:focus { border-color: var(--accent-blue); }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .btn {
+    padding: 10px; border: none; border-radius: 6px; font-weight: 700; font-size: 11px;
+    cursor: pointer; transition: 0.2s;
+  }
+  .btn-amb { background: #2563eb; color: #fff; }
+  .btn-fire { background: var(--accent-orange); color: #fff; }
+  .btn-jam { background: #dc2626; color: #fff; }
+  .btn-auto { background: #059669; color: #fff; grid-column: span 2; }
+  .btn-reset { background: #334155; color: #cbd5e1; grid-column: span 2; }
+
+  #center-display {
+    flex: 1; display: flex; flex-direction: column; background: #162032; position: relative;
+  }
+  #mapSvg { width: 100%; flex: 1; }
+  .console {
+    height: 120px; background: #090d16; border-top: 1px solid var(--border);
+    padding: 8px 12px; font-family: monospace; font-size: 11px; overflow-y: auto;
+  }
+  .log-line { line-height: 1.4; color: var(--accent-green); }
+  .log-alert { color: var(--accent-orange); }
+  .tile { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+  .metric { font-size: 22px; font-weight: 800; font-family: monospace; color: var(--accent-blue); }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .badge-open { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+  .badge-full { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+  .progress-wrap { background: #0b1120; border-radius: 4px; height: 8px; width: 100%; margin-top: 6px; overflow: hidden; }
+  .progress-bar { width: 0%; height: 100%; background: var(--accent-green); transition: width 0.2s; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="brand"><span id="modeIcon">🚑</span> <span id="brandText">AI AMBULANCE CORRIDOR DISPATCH</span></div>
+  <div class="tabs">
+    <button class="tab-btn active-amb" id="tabAmb" onclick="setMode('ambulance')">🚑 AMBULANCE</button>
+    <button class="tab-btn" id="tabFire" onclick="setMode('fire')">🚒 FIRE BRIGADE</button>
+  </div>
+</div>
+
+<div id="workspace">
+  <!-- LEFT PANEL -->
+  <div class="panel panel-left">
+    <!-- AMBULANCE CONTROLS -->
+    <div id="ambBox">
+      <div class="label-title">Ambulance Base (Start Point)</div>
+      <select id="ambStart" onchange="onAmbOriginSelect()">
+        <option value="sitabuldi">Sitabuldi Square EMS Post</option>
+        <option value="dharampeth">Dharampeth Standby Base</option>
+        <option value="sadar">Sadar Central Post</option>
+        <option value="itwari">Itwari Market Base</option>
+      </select>
+
+      <div class="label-title">Select Nearby Hospital (Destination)</div>
+      <select id="ambDest" onchange="onAmbDestSelect()">
+        <option value="aiims_ngp">AIIMS Hospital, MIHAN [12 Beds Open]</option>
+        <option value="gmc_ngp">GMC Hospital, Medical Chowk [FULL - 0 Beds]</option>
+        <option value="kingsway_ngp">Kingsway Hospital, Station [4 Beds Open]</option>
+        <option value="orange_city_ngp">Orange City Hospital [6 Beds Open]</option>
+        <option value="alexis_ngp">Max Alexis Hospital [8 Beds Open]</option>
+        <option value="care_ngp">CARE Hospital, Ramdaspeth [2 Beds Open]</option>
+        <option value="wockhardt_ngp">Wockhardt Hospital [FULL - 0 Beds]</option>
+      </select>
+
+      <!-- PATIENT APNE GHAR KA ADDRESS YAHAN DALEGA -->
+      <div class="label-title" style="color: #38bdf8; margin-top:8px;">🏠 Enter Patient Home / Pickup Address</div>
+      <input type="text" id="patientHomeInput" placeholder="Enter patient home address (e.g. Flat 104, Dharampeth)" oninput="onPatientHomeAddress(this.value)" />
+
+      <div class="btn-grid">
+        <button class="btn btn-amb" onclick="dispatch(false)">DISPATCH FAST PATH</button>
+        <button class="btn btn-jam" onclick="dispatch(true)">SIMULATE JAM & REROUTE</button>
+        <button class="btn btn-auto" onclick="autoRouteCapacity()">⚡ AUTO-ROUTE TO NEAREST AVAILABLE ER</button>
+        <button class="btn btn-reset" onclick="resetCorridor()">RESET SYSTEM</button>
+      </div>
+    </div>
+
+    <!-- FIRE BRIGADE CONTROLS -->
+    <div id="fireBox" style="display:none;">
+      <div class="label-title">Fire Station (Start Point)</div>
+      <select id="fireStart" onchange="onFireOriginSelect()">
+        <option value="civil_lines">Civil Lines Central Fire HQ</option>
+        <option value="cotton_mkt_stn">Cotton Market Fire Station</option>
+        <option value="narendra_nagar">Narendra Nagar Fire Station</option>
+        <option value="sakkardara_stn">Sakkardara Fire Station</option>
+        <option value="lakadganj_stn">Lakadganj Fire Station</option>
+        <option value="midc_hingna_stn">MIDC Hingna Fire Post</option>
+      </select>
+
+      <div class="label-title">Fire Incident Location (Stop Point)</div>
+      <select id="fireDest" onchange="onFireDestSelect()">
+        <option value="midc_hingna_plant">MIDC Hingna Chemical Plant [CODE RED]</option>
+        <option value="kalamna_warehouse">Kalamna Grain Warehouse [HIGH HAZARD]</option>
+        <option value="itwari_cloth_mkt">Itwari Cloth Market [CRITICAL]</option>
+        <option value="butibori_ind">Butibori Industrial Area [CODE RED]</option>
+        <option value="sadar_commercial">Sadar Commercial Plaza [HIGH ALERT]</option>
+      </select>
+
+      <div class="label-title">Or Enter Custom Fire Address</div>
+      <input type="text" id="fireCustomInput" placeholder="Type custom building or landmark" oninput="customFireAddress(this.value)" />
+
+      <div class="btn-grid">
+        <button class="btn btn-fire" onclick="dispatch(false)">DISPATCH FIRE TENDER</button>
+        <button class="btn btn-jam" onclick="dispatch(true)">SIMULATE JAM & REROUTE</button>
+        <button class="btn btn-reset" onclick="resetCorridor()">RESET SYSTEM</button>
+      </div>
+    </div>
+
+    <!-- LIVE GRAPH -->
+    <div class="label-title" style="margin-top:10px;">Live Corridor Traffic Density Trend</div>
+    <div style="background:#090d16; border:1px solid var(--border); border-radius:6px; padding:6px; height:80px;">
+      <svg id="densityGraph" viewBox="0 0 250 60" style="width:100%; height:100%;">
+        <path id="graphLine" d="M 0 45 Q 60 40, 120 45 T 250 50" fill="none" stroke="#10b981" stroke-width="3" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- CENTER MAP -->
+  <div id="center-display">
+    <svg id="mapSvg" viewBox="0 0 900 600">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="900" height="600" fill="url(#grid)" />
+
+      <!-- Roads -->
+      <line x1="450" y1="180" x2="620" y2="520" stroke="#334155" stroke-width="18" stroke-linecap="round" />
+      <line x1="450" y1="180" x2="620" y2="520" stroke="#475569" stroke-width="8" stroke-linecap="round" />
+      <text x="560" y="380" fill="#94a3b8" font-size="11" font-weight="bold" transform="rotate(63 560,380)">WARDHA ROAD</text>
+
+      <line x1="160" y1="210" x2="450" y2="180" stroke="#334155" stroke-width="16" stroke-linecap="round" />
+      <line x1="160" y1="210" x2="450" y2="180" stroke="#475569" stroke-width="6" stroke-linecap="round" />
+      <text x="260" y="190" fill="#94a3b8" font-size="11" font-weight="bold">AMRAVATI ROAD</text>
+
+      <line x1="240" y1="420" x2="720" y2="420" stroke="#334155" stroke-width="16" stroke-linecap="round" />
+      <line x1="240" y1="420" x2="720" y2="420" stroke="#475569" stroke-width="6" stroke-linecap="round" />
+      <text x="320" y="412" fill="#94a3b8" font-size="11" font-weight="bold">RING ROAD</text>
+
+      <!-- Routing corridors -->
+      <path id="corridorPath" d="" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" />
+      <path id="bypassPath" d="" fill="none" stroke="#ef4444" stroke-width="7" stroke-linecap="round" stroke-dasharray="6,6" style="display:none;" />
+
+      <!-- Traffic Jam Marker -->
+      <g id="jamMarker" style="display:none;">
+        <circle cx="530" cy="340" r="30" fill="rgba(239, 68, 68, 0.4)" stroke="#ef4444" stroke-width="2.5" />
+        <text x="521" y="348" font-size="20">⚠️</text>
+      </g>
+
+      <!-- Dynamic Nodes -->
+      <g id="mapNodes"></g>
+
+      <!-- Custom Patient Home Marker Node -->
+      <g id="patientHomeNode" transform="translate(350, 240)" style="display:none;">
+        <circle r="16" fill="#0284c7" stroke="#38bdf8" stroke-width="3" />
+        <text x="-9" y="6" font-size="16">🏠</text>
+        <text id="patientHomeLabel" x="22" y="5" fill="#38bdf8" font-size="11" font-weight="bold">Patient Home</text>
+      </g>
+
+      <!-- Start Node -->
+      <g id="originNode" transform="translate(450, 180)">
+        <circle r="15" fill="#0284c7" stroke="#38bdf8" stroke-width="3" />
+        <text id="originLabel" x="20" y="5" fill="#38bdf8" font-size="12" font-weight="bold">📍 Sitabuldi Base</text>
+      </g>
+
+      <!-- Moving Vehicle -->
+      <g id="vehicleSprite" transform="translate(450, 180)">
+        <circle r="20" fill="rgba(56, 189, 248, 0.3)" stroke="#38bdf8" stroke-width="2" />
+        <text id="vehicleIcon" x="-11" y="9" font-size="24">🚑</text>
+      </g>
+    </svg>
+
+    <div class="console" id="consoleLog">
+      <div class="log-line">[SYS] Emergency Corridor Dispatch Online. Ready.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel panel-right">
+    <div class="label-title">Estimated Arrival (ETA)</div>
+    <div class="tile">
+      <div class="metric" id="etaDisplay">--:--</div>
+      <div style="font-size: 11px; color: var(--text-muted);" id="distDisplay">0.00 KM TOTAL</div>
+    </div>
+
+    <div class="label-title" id="cardHeader">Destination Information</div>
+    <div class="tile">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; font-weight:700;" id="targetName">AIIMS Hospital, MIHAN</span>
+        <span id="targetBadge" class="badge badge-open">12 BEDS OPEN</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top:3px;" id="targetDept">Trauma Bay & ICU</div>
+      <div style="font-size: 13px; font-weight:800; color:var(--accent-blue); margin-top:4px;" id="targetPhone">📞 +91 712 298 5555</div>
+    </div>
+
+    <div class="label-title">Corridor Status</div>
+    <div class="tile">
+      <div style="display:flex; justify-content:space-between; font-size:11px;">
+        <span id="percentText">0% Covered</span>
+        <span style="color:var(--accent-green); font-weight:700;" id="signalText">STANDBY</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div style="font-size:10px; color:var(--text-muted); margin-top:6px;" id="smsText">SMS Alert: Standby</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'ambulance';
+  let driveTimer = null;
+  let smsSent = false;
+  let isCustomPatientHome = false;
+
+  const AMB_ORIGINS = {
+    sitabuldi: { name: "Sitabuldi Square EMS Post", x: 450, y: 180 },
+    dharampeth: { name: "Dharampeth Standby Base", x: 280, y: 210 },
+    sadar: { name: "Sadar Central Post", x: 450, y: 110 },
+    itwari: { name: "Itwari Market Base", x: 620, y: 190 }
+  };
+
+  const HOSPITALS = {
+    aiims_ngp: { name: "AIIMS Hospital, MIHAN", x: 620, y: 520, beds: 12, dept: "Trauma ICU", phone: "+91 712 298 5555", dist: 11.2 },
+    gmc_ngp: { name: "GMC Hospital", x: 560, y: 270, beds: 0, dept: "Casualty Ward", phone: "+91 712 274 4441", dist: 4.5 },
+    kingsway_ngp: { name: "Kingsway Hospital", x: 480, y: 110, beds: 4, dept: "Cardiac Care", phone: "+91 712 666 0000", dist: 3.1 },
+    orange_city_ngp: { name: "Orange City Hospital", x: 410, y: 310, beds: 6, dept: "Emergency Wing", phone: "+91 712 663 4800", dist: 5.2 },
+    alexis_ngp: { name: "Max Alexis Hospital", x: 440, y: 50, beds: 8, dept: "Trauma Center", phone: "+91 712 712 0000", dist: 7.8 },
+    care_ngp: { name: "CARE Hospital", x: 390, y: 250, beds: 2, dept: "Neuro Emergency", phone: "+91 712 398 2222", dist: 2.8 },
+    wockhardt_ngp: { name: "Wockhardt Hospital", x: 320, y: 260, beds: 0, dept: "Stroke Care", phone: "+91 712 662 4444", dist: 4.1 }
+  };
+
+  const FIRE_STATIONS = {
+    civil_lines: { name: "Civil Lines Fire HQ", x: 430, y: 140 },
+    cotton_mkt_stn: { name: "Cotton Market Fire Station", x: 530, y: 200 },
+    narendra_nagar: { name: "Narendra Nagar Station", x: 500, y: 390 },
+    sakkardara_stn: { name: "Sakkardara Fire Station", x: 610, y: 310 },
+    lakadganj_stn: { name: "Lakadganj Fire Station", x: 670, y: 170 },
+    midc_hingna_stn: { name: "MIDC Hingna Post", x: 230, y: 410 }
+  };
+
+  const FIRE_TARGETS = {
+    midc_hingna_plant: { name: "MIDC Hingna Chemical Plant", x: 220, y: 460, severity: "CODE RED", dept: "Chemical Blaze", phone: "+91 712 256 0101", dist: 8.8 },
+    kalamna_warehouse: { name: "Kalamna Grain Warehouse", x: 720, y: 120, severity: "HIGH HAZARD", dept: "Warehouse Fire", phone: "+91 712 268 0202", dist: 7.5 },
+    itwari_cloth_mkt: { name: "Itwari Cloth Market", x: 600, y: 180, severity: "CRITICAL", dept: "Textile Fire", phone: "+91 712 272 0303", dist: 3.2 },
+    butibori_ind: { name: "Butibori Industrial Area", x: 640, y: 530, severity: "CODE RED", dept: "Factory Fire", phone: "+91 712 284 0404", dist: 14.5 },
+    sadar_commercial: { name: "Sadar Commercial Plaza", x: 450, y: 90, severity: "HIGH ALERT", dept: "Electrical Fire", phone: "+91 712 254 0505", dist: 2.1 }
+  };
+
+  let curOrigin = AMB_ORIGINS.sitabuldi;
+  let curDest = HOSPITALS.aiims_ngp;
+
+  function speak(text) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    }
+  }
+
+  function addLog(msg, isAlert = false) {
+    const el = document.getElementById('consoleLog');
+    const time = new Date().toTimeString().split(' ')[0];
+    const row = document.createElement('div');
+    row.className = isAlert ? 'log-line log-alert' : 'log-line';
+    row.innerText = `[${time}] ${msg}`;
+    el.appendChild(row);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setMode(newMode) {
+    mode = newMode;
+    const isAmb = mode === 'ambulance';
+    document.getElementById('tabAmb').className = isAmb ? 'tab-btn active-amb' : 'tab-btn';
+    document.getElementById('tabFire').className = !isAmb ? 'tab-btn active-fire' : 'tab-btn';
+    document.getElementById('ambBox').style.display = isAmb ? 'block' : 'none';
+    document.getElementById('fireBox').style.display = !isAmb ? 'block' : 'none';
+    document.getElementById('modeIcon').textContent = isAmb ? '🚑' : '🚒';
+    document.getElementById('vehicleIcon').textContent = isAmb ? '🚑' : '🚒';
+    document.getElementById('brandText').innerText = isAmb ? 'AI AMBULANCE CORRIDOR DISPATCH' : 'AI FIRE BRIGADE DISPATCH';
+    document.getElementById('cardHeader').innerText = isAmb ? 'Destination / Patient Location' : 'Fire Incident Zone';
+
+    if (isAmb) {
+      onAmbOriginSelect();
+      onAmbDestSelect();
+    } else {
+      document.getElementById('patientHomeNode').style.display = 'none';
+      onFireOriginSelect();
+      onFireDestSelect();
+    }
+    renderNodes();
+    resetCorridor();
+    speak(isAmb ? "Ambulance mode active" : "Fire brigade mode active");
+  }
+
+  function renderNodes() {
+    const g = document.getElementById('mapNodes');
+    g.innerHTML = '';
+    const list = mode === 'ambulance' ? HOSPITALS : FIRE_TARGETS;
+    Object.keys(list).forEach(k => {
+      const item = list[k];
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      node.setAttribute('transform', `translate(${item.x}, ${item.y})`);
+      const isAmb = mode === 'ambulance';
+      const color = isAmb ? (item.beds > 0 ? '#10b981' : '#ef4444') : '#ea580c';
+      const symbol = isAmb ? '🏥' : '🔥';
+      const txt = isAmb ? `${item.name} (${item.beds > 0 ? item.beds + ' Beds' : 'FULL'})` : `${item.name} [${item.severity}]`;
+
+      node.innerHTML = `
+        <circle r="16" fill="#0f172a" stroke="${color}" stroke-width="2.5" />
+        <text x="-8" y="6" font-size="16">${symbol}</text>
+        <text x="22" y="5" fill="#f8fafc" font-size="11" font-weight="bold">${txt}</text>
+      `;
+      g.appendChild(node);
+    });
+  }
+
+  function onAmbOriginSelect() {
+    curOrigin = AMB_ORIGINS[document.getElementById('ambStart').value];
+    updateOriginDisplay();
+  }
+  
+  function onAmbDestSelect() {
+    isCustomPatientHome = false;
+    document.getElementById('patientHomeNode').style.display = 'none';
+    curDest = HOSPITALS[document.getElementById('ambDest').value];
+    updateDestDisplay();
+  }
+
+  // PATIENT APNE GHAR KA ADDRESS YAHAN TYPE KAREGA
+  function onPatientHomeAddress(val) {
+    if (val.trim().length > 2) {
+      isCustomPatientHome = true;
+      curDest = {
+        name: val,
+        x: 350,
+        y: 240,
+        dept: "Patient Home Pickup Emergency",
+        phone: "+91 Emergency Caller Contact",
+        beds: 1,
+        dist: 3.8
+      };
+      
+      const homeNode = document.getElementById('patientHomeNode');
+      homeNode.style.display = 'block';
+      document.getElementById('patientHomeLabel').textContent = `🏠 ${val}`;
+
+      document.getElementById('targetName').innerText = val;
+      document.getElementById('targetDept').innerText = "Patient Home Pickup Location";
+      document.getElementById('targetBadge').innerText = "PATIENT HOME";
+      document.getElementById('targetBadge').className = "badge badge-open";
+      document.getElementById('targetPhone').innerText = "📞 Emergency Caller Connected";
+      addLog(`Patient home address registered: "${val}"`);
+    } else {
+      isCustomPatientHome = false;
+      document.getElementById('patientHomeNode').style.display = 'none';
+      onAmbDestSelect();
+    }
+  }
+
+  function onFireOriginSelect() {
+    curOrigin = FIRE_STATIONS[document.getElementById('fireStart').value];
+    updateOriginDisplay();
+  }
+  function onFireDestSelect() {
+    curDest = FIRE_TARGETS[document.getElementById('fireDest').value];
+    updateDestDisplay();
+  }
+
+  function customFireAddress(val) {
+    if (val.trim().length > 2) {
+      document.getElementById('targetName').innerText = val;
+      document.getElementById('targetDept').innerText = "Manual Reported Fire Incident";
+      document.getElementById('targetBadge').innerText = "USER SPECIFIED";
+      document.getElementById('targetBadge').className = "badge badge-full";
+    }
+  }
+
+  function updateOriginDisplay() {
+    document.getElementById('originNode').setAttribute('transform', `translate(${curOrigin.x}, ${curOrigin.y})`);
+    document.getElementById('originLabel').textContent = `📍 ${curOrigin.name}`;
+    document.getElementById('vehicleSprite').setAttribute('transform', `translate(${curOrigin.x}, ${curOrigin.y})`);
+    addLog(`Start base: ${curOrigin.name}`);
+  }
+
+  function updateDestDisplay() {
+    document.getElementById('targetName').innerText = curDest.name;
+    document.getElementById('targetDept').innerText = curDest.dept;
+    document.getElementById('targetPhone').innerText = `📞 ${curDest.phone}`;
+    const badge = document.getElementById('targetBadge');
+    if (mode === 'ambulance') {
+      badge.className = curDest.beds > 0 ? 'badge badge-open' : 'badge badge-full';
+      badge.innerText = curDest.beds > 0 ? `${curDest.beds} BEDS OPEN` : 'BEDS FULL';
+    } else {
+      badge.className = 'badge badge-full';
+      badge.innerText = curDest.severity;
+    }
+    addLog(`Stop point: ${curDest.name}`);
+  }
+
+  function autoRouteCapacity() {
+    document.getElementById('patientHomeInput').value = '';
+    isCustomPatientHome = false;
+    document.getElementById('patientHomeNode').style.display = 'none';
+    
+    let bestKey = null, minD = Infinity;
+    Object.keys(HOSPITALS).forEach(k => {
+      const h = HOSPITALS[k];
+      if (h.beds > 0 && h.dist < minD) { minD = h.dist; bestKey = k; }
+    });
+    if (bestKey) {
+      document.getElementById('ambDest').value = bestKey;
+      onAmbDestSelect();
+      addLog(`Capacity Engine: Auto-routed to open ER: ${HOSPITALS[bestKey].name}`, true);
+      speak(`Auto routing to nearest open hospital: ${HOSPITALS[bestKey].name}`);
+      dispatch(false);
+    }
+  }
+
+  function dispatch(isJam) {
+    if (driveTimer) clearInterval(driveTimer);
+    smsSent = false;
+    const path = document.getElementById('corridorPath');
+    const bypass = document.getElementById('bypassPath');
+    const jam = document.getElementById('jamMarker');
+    const themeColor = mode === 'ambulance' ? '#10b981' : '#ea580c';
+
+    if (isJam) {
+      jam.style.display = 'block';
+      bypass.style.display = 'block';
+      bypass.setAttribute('d', `M ${curOrigin.x},${curOrigin.y} Q 300,320 400,420 T ${curDest.x},${curDest.y}`);
+      path.setAttribute('d', `M ${curOrigin.x},${curOrigin.y} L 530,340`);
+      path.setAttribute('stroke', '#ef4444');
+
+      document.getElementById('etaDisplay').innerText = '14 MIN';
+      document.getElementById('distDisplay').innerText = `${(curDest.dist * 1.3).toFixed(1)} KM TOTAL`;
+      document.getElementById('signalText').innerText = 'JAM BYPASS';
+      document.getElementById('graphLine').setAttribute('stroke', '#ef4444');
+      document.getElementById('graphLine').setAttribute('d', 'M 0 50 Q 60 15, 120 10 T 250 15');
+
+      addLog("TRAFFIC BOTTLENECK: Route congested. Bypass corridor engaged.", true);
+      speak(mode === 'ambulance' ? "Traffic ahead. Rerouting ambulance via bypass." : "Road blocked. Rerouting fire tender.");
+      animateVehicle(bypass);
+    } else {
+      jam.style.display = 'none';
+      bypass.style.display = 'none';
+      path.setAttribute('d', `M ${curOrigin.x},${curOrigin.y} Q ${(curOrigin.x + curDest.x)/2 + 20},${(curOrigin.y + curDest.y)/2} ${curDest.x},${curDest.y}`);
+      path.setAttribute('stroke', themeColor);
+
+      document.getElementById('etaDisplay').innerText = `${Math.round(curDest.dist * 1.1)} MIN`;
+      document.getElementById('distDisplay').innerText = `${curDest.dist} KM TOTAL`;
+      document.getElementById('signalText').innerText = 'GREEN WAVE ACTIVE';
+      document.getElementById('graphLine').setAttribute('stroke', themeColor);
+      document.getElementById('graphLine').setAttribute('d', 'M 0 45 Q 60 40, 120 45 T 250 50');
+
+      addLog(`Corridor Active: ${curOrigin.name} ➔ ${curDest.name}`);
+      speak(isCustomPatientHome 
+        ? "Ambulance dispatched to patient home address." 
+        : (mode === 'ambulance' ? "Emergency ambulance green wave active." : "Fire tender corridor active."));
+      animateVehicle(path);
+    }
+  }
+
+  function animateVehicle(pathEl) {
+    const total = pathEl.getTotalLength();
+    let d = 0;
+    const sprite = document.getElementById('vehicleSprite');
+
+    driveTimer = setInterval(() => {
+      if (d <= total) {
+        const pt = pathEl.getPointAtLength(d);
+        sprite.setAttribute('transform', `translate(${pt.x}, ${pt.y})`);
+        const pct = Math.round((d / total) * 100);
+        document.getElementById('progressBar').style.width = `${pct}%`;
+        document.getElementById('percentText').innerText = `${pct}% Covered`;
+
+        if (pct >= 50 && !smsSent) {
+          smsSent = true;
+          document.getElementById('smsText').innerText = `SMS Sent: Unit 2 Mins Away`;
+          addLog(`[SMS WEBHOOK] Dispatched: Unit 2 mins away from ${curDest.name}.`, true);
+          speak("Automated SMS alert sent: Ambulance is 2 minutes away.");
+        }
+        d += 1.3;
+      } else {
+        clearInterval(driveTimer);
+        document.getElementById('percentText').innerText = '100% Arrived';
+        addLog(`Arrival confirmed: Ambulance arrived at ${curDest.name}.`);
+        speak("Ambulance arrived at destination.");
+      }
+    }, 90);
+  }
+
+  function resetCorridor() {
+    if (driveTimer) clearInterval(driveTimer);
+    document.getElementById('corridorPath').setAttribute('d', '');
+    document.getElementById('bypassPath').setAttribute('d', '');
+    document.getElementById('jamMarker').style.display = 'none';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('percentText').innerText = '0% Covered';
+    document.getElementById('etaDisplay').innerText = '--:--';
+    document.getElementById('distDisplay').innerText = '0.00 KM TOTAL';
+    document.getElementById('signalText').innerText = 'STANDBY';
+    document.getElementById('smsText').innerText = 'SMS Alert: Standby';
+    document.getElementById('patientHomeInput').value = '';
+    document.getElementById('fireCustomInput').value = '';
+    document.getElementById('patientHomeNode').style.display = 'none';
+    isCustomPatientHome = false;
+    updateOriginDisplay();
+    addLog("Corridor reset to default standby.");
+  }
+
+  renderNodes();
+  onAmbOriginSelect();
+  onAmbDestSelect();
+</script>
+</body>
+</html>
+      
